@@ -1,0 +1,16 @@
+srs:
+  streamCaster:
+    rtp_mux_port: 9000
+    rtp_idle_timeout: 30
+    audio_enable: true
+  sip:
+    serial: 34020000002020000001
+    realm: 3402000000
+    ip: 192.168.50.50
+    port: 5060
+    password: 12345678
+    ack_timeout: 30
+    keepalive_timeout: 120
+    auto_play: false
+    invite_port_fixed: true
+    query_catalog_interval: 60
