@@ -4,6 +4,7 @@ srs:
     rtp_idle_timeout: 30
     audio_enable: true
   sip:
+    name: srs-sip
     serial: 34020000002020000001
     realm: 3402000000
     ip: 192.168.50.50
@@ -14,3 +15,5 @@ srs:
     auto_play: false
     invite_port_fixed: true
     query_catalog_interval: 60
+    trace_level: NONE
+    log_message_content: false
