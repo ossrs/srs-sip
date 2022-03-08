@@ -28,4 +28,6 @@ public interface IDeviceInterface {
      * @return 设备信息
      */
     Device info(String serial);
+
+    Device getById(String deviceId);
 }

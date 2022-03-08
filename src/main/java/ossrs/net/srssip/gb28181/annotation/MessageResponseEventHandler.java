@@ -12,7 +12,6 @@ import java.lang.annotation.Target;
  * @ Date 24/2/2022 上午1:06
  */
 @Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.TYPE)
 public @interface MessageResponseEventHandler {
     String value();
 }

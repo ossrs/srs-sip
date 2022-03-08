@@ -1,8 +1,11 @@
 package ossrs.net.srssip.gb28181.listeners;
 
+import com.alibaba.fastjson.JSON;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
+import ossrs.net.srssip.gb28181.event.messageevent.MessageEventAbstract;
+import ossrs.net.srssip.gb28181.event.request.MessageRequestAbstract;
 import ossrs.net.srssip.gb28181.listeners.factory.MessageEventFactory;
 
 import javax.annotation.Resource;
@@ -26,7 +29,10 @@ public class SipServerListeners implements SipListener {
     @Override
     public void processRequest(RequestEvent requestEvent) {
         Request request = requestEvent.getRequest();
-        log.debug(request.toString());
+        log.info(request.toString());
+        MessageEventAbstract messageEventAbstract = MessageEventFactory.INSTANCE.
+                getMessageEvent(requestEvent);
+        applicationEventPublisher.publishEvent(messageEventAbstract);
     }
 
     @Override
@@ -46,7 +52,7 @@ public class SipServerListeners implements SipListener {
 
     @Override
     public void processTransactionTerminated(TransactionTerminatedEvent transactionTerminatedEvent) {
-        log.error(transactionTerminatedEvent.toString());
+        log.error(JSON.toJSONString(transactionTerminatedEvent));
     }
 
     @Override

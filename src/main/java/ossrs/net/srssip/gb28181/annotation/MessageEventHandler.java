@@ -1,9 +1,7 @@
 package ossrs.net.srssip.gb28181.annotation;
 
-import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
 
 /**
  * @ Description ossrs.net.srssip.gb28181.annotation
@@ -12,7 +10,6 @@ import java.lang.annotation.Target;
  * @ Date 24/2/2022 上午1:04
  */
 @Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.TYPE)
 public @interface MessageEventHandler {
     String value();
 }

@@ -2,6 +2,7 @@ package ossrs.net.srssip.gb28181.event.messageevent;
 
 import gov.nist.javax.sip.address.SipUri;
 import gov.nist.javax.sip.header.Expires;
+import lombok.Getter;
 import ossrs.net.srssip.gb28181.annotation.MessageEventHandler;
 import ossrs.net.srssip.util.DigestServerAuthenticationHelper;
 
@@ -11,7 +12,6 @@ import javax.sip.header.FromHeader;
 import javax.sip.header.ViaHeader;
 import javax.sip.message.Request;
 import java.security.NoSuchAlgorithmException;
-import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -20,7 +20,8 @@ import java.util.Optional;
  * @ Email xbaojun@gmail.com
  * @ Date 24/2/2022 上午1:29
  */
-@MessageEventHandler("REGISTER")
+@Getter
+@MessageEventHandler(value = "REGISTER")
 public class RegisterEvent extends MessageEventAbstract{
 
     private AuthorizationHeader authHeader;

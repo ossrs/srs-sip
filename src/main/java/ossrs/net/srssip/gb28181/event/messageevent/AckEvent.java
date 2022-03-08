@@ -13,7 +13,7 @@ import javax.sip.message.Request;
  * @ Email xbaojun@gmail.com
  * @ Date 24/2/2022 上午1:27
  */
-@MessageEventHandler("ACK")
+@MessageEventHandler(value = "ACK")
 public class AckEvent extends MessageEventAbstract{
 
     @Getter

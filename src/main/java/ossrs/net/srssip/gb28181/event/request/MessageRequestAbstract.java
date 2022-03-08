@@ -1,4 +1,4 @@
-package ossrs.net.srssip.gb28181.event.message;
+package ossrs.net.srssip.gb28181.event.request;
 
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
