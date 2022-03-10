@@ -1,5 +1,7 @@
 package ossrs.net.srssip.gb28181.domain;
 
+import lombok.Data;
+
 import java.time.LocalDateTime;
 
 /**
@@ -8,6 +10,7 @@ import java.time.LocalDateTime;
  * @ Email xbaojun@gmail.com
  * @ Date 23/2/2022 下午10:04
  */
+@Data
 public class Device {
     /**
      * 国标编号

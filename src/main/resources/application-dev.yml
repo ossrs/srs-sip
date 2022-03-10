@@ -17,3 +17,58 @@ srs:
     query_catalog_interval: 60
     trace_level: NONE
     log_message_content: false
+  srs:
+    serial: 34020000002020000001
+    realm: 3402000000
+    http_port: 1985
+    wan_ip: 192.168.50.50
+    HWDecodeLoad: 0
+    HevcDecoder:
+    IPList:
+    Load: 0
+    RegisterResponseDateTime: 1
+    RTSPPort: 0
+    HWEncodeLoad: 0
+    GroupID:
+    AllowStreamStartByURL: 1
+    host: 192.168.50.50
+    H265Load: 0
+    MaxHWDecodeLoad: 0
+    MaxHWEncodeLoad: 0
+    H264Decoder:
+    AckTimeout: 15
+    Port: 28080
+    Domain: 192.168.50.50
+    MaxSessionCount: 0
+    UseNetworkToRealm: 0
+    TimeServer:
+    StreamTimeout: 30
+    HevcEncoder:
+    StreamAuthURL:
+    ErrCnt: 0
+    KeepaliveTimeout: 300
+    HTTPSPort: 0
+    RTMPPort: 1935
+    H264Encoder:
+    UserAgent:
+    #  可选配置0/1, 指示流媒体服务器使用公网 IP 接收国标下级流数据(可选)
+    use_wan_ip_recv_stream: false
+    #  ; 可选配置0/1, 用于级联场景, 指示上级使用公网 IP 取流(可选)
+    use_wan_ip_send_stream: false
+    #  可选配置0/1, 用于级联场景, 指示使用随机空闲端口向上级推流(可选)
+    use_random_port_send_stream: true
+    rtp:
+      mux_port: 9000
+      #  收流端口区间, 对国标平台/设备开放
+      tcp_port_range: 30000,30249
+      udp_port_range: 30000,30249
+      #  码流空闲超时(秒)
+      idle_timeout_seconds: 10
+    webrtc:
+      #    分发端口区间, 对浏览器开放
+      udp_port_range: 30250,30500
+user-settings:
+  senior_sdp: false
+  # 推流直播是否开启录制
+  record-push-live: true
+  auto-apply-play: false
