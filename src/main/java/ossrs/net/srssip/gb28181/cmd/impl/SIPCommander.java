@@ -11,7 +11,9 @@ import ossrs.net.srssip.config.SmsConfig;
 import ossrs.net.srssip.dto.SrsCreateChannelResp;
 import ossrs.net.srssip.gb28181.cmd.ISIPCommander;
 import ossrs.net.srssip.gb28181.domain.Device;
+import ossrs.net.srssip.gb28181.domain.DeviceChannel;
 import ossrs.net.srssip.gb28181.domain.StreamInfo;
+import ossrs.net.srssip.gb28181.event.subscribe.SipCatalogResponseSubscribe;
 import ossrs.net.srssip.gb28181.event.subscribe.SipResponseHolder;
 import ossrs.net.srssip.gb28181.event.subscribe.SipStreamPlayResponseSubscribe;
 import reactor.core.publisher.Mono;
@@ -26,6 +28,7 @@ import javax.sip.message.Request;
 import java.text.ParseException;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.List;
 
 import static ossrs.net.srssip.gb28181.event.subscribe.SipResponseHolder.CALLBACK_CMD_PLAY;
 
@@ -56,48 +59,62 @@ public class SIPCommander implements ISIPCommander {
     private SipProvider sipUdpProvider;
 
     @Override
-    public Mono<StreamInfo> playStreamCmd(Device device, String channelId, String transport,
+    public Mono<StreamInfo> playStreamCmd(Device device, String channelId, String audio, String transport,
                                           String transport_mode, Integer timeout,
                                           SipStreamPlayResponseSubscribe streamPlayResponseSubscribe) {
-        if(device==null) return Mono.justOrEmpty(new StreamInfo());
-        String key = CALLBACK_CMD_PLAY+device.getId()+channelId;
+        if (device == null) return Mono.justOrEmpty(new StreamInfo());
+        String key = CALLBACK_CMD_PLAY + device.getId() + channelId;
         String url = String.format(CREATE_CHANNEL_URL,
-                smsConfig.getHost(),smsConfig.getHttpPort(),
+                smsConfig.getHost(), smsConfig.getHttpPort(),
                 device.getId().concat("_").concat(channelId),
-                device.getId().concat("_").concat(channelId),"gb28181");
+                device.getId().concat("_").concat(channelId), "gb28181");
         return WebClient.create(url)
                 .get()
                 .retrieve()
                 .bodyToMono(JSONObject.class)
                 .flatMap(jsonObject -> {
-                    if(jsonObject.getInteger("code")==0){
+                    if (jsonObject.getInteger("code") == 0) {
                         SrsCreateChannelResp srsCreateChannelResp = jsonObject
                                 .getJSONObject("data")
-                                .getObject("query",SrsCreateChannelResp.class);
-                        sipResponseHolder.put(key, String.valueOf(srsCreateChannelResp.getSsrc()),streamPlayResponseSubscribe);
+                                .getObject("query", SrsCreateChannelResp.class);
+                        sipResponseHolder.put(key, String.valueOf(srsCreateChannelResp.getSsrc()), streamPlayResponseSubscribe);
                         String streamMode;
-                        if("UDP".equals(transport)){
+                        if ("UDP".equals(transport)) {
                             streamMode = transport;
-                        }else if("TCP".equals(transport)){
-                            streamMode = "active".equalsIgnoreCase(transport_mode)?"TCP-ACTIVE":"TCP-PASSIVE";
-                        }else {
+                        } else if ("TCP".equals(transport)) {
+                            streamMode = "active".equalsIgnoreCase(transport_mode) ? "TCP-ACTIVE" : "TCP-PASSIVE";
+                        } else {
                             streamMode = device.getMediaTransport().toUpperCase();
                         }
 
                         StringBuilder content = new StringBuilder(256);
                         content.append("v=0\r\n");
-                        content.append("o=").append(channelId).append(" 0 0 IN IP4 ").append(sipConfig.getIp()).append("\r\n");
+                        content.append("o=")
+                                .append(channelId)
+                                .append(" 0 0 IN IP4 ")
+                                .append(sipConfig.getIp())
+                                .append("\r\n");
                         content.append("s=Play\r\n");
-                        content.append("c=IN IP4 "+ sipConfig.getIp() +"\r\n");
+                        content.append("c=IN IP4 ")
+                                .append(sipConfig.getIp())
+                                .append("\r\n");
                         content.append("t=0 0\r\n");
 
+                        // tcp被动模式
+                        // tcp主动模式
                         if (isSeniorSdp) {
-                            if("TCP-PASSIVE".equals(streamMode)) {
-                                content.append("m=video ").append(smsConfig.getRtp().getMux_port()).append(" TCP/RTP/AVP 96 126 125 99 34 98 97\r\n");
-                            }else if ("TCP-ACTIVE".equals(streamMode)) {
-                                content.append("m=video "+ smsConfig.getRtp().getMux_port() +" TCP/RTP/AVP 96 126 125 99 34 98 97\r\n");
-                            }else if("UDP".equals(streamMode)) {
-                                content.append("m=video "+ smsConfig.getRtp().getMux_port() +" RTP/AVP 96 126 125 99 34 98 97\r\n");
+                            switch (streamMode) {
+                                case "TCP-PASSIVE":
+                                case "TCP-ACTIVE":
+                                    content.append("m=video ")
+                                            .append(smsConfig.getRtp().getMux_port())
+                                            .append(" TCP/RTP/AVP 96 126 125 99 34 98 97\r\n");
+                                    break;
+                                case "UDP":
+                                    content.append("m=video ")
+                                            .append(smsConfig.getRtp().getMux_port())
+                                            .append(" RTP/AVP 96 126 125 99 34 98 97\r\n");
+                                    break;
                             }
                             content.append("a=recvonly\r\n");
                             content.append("a=rtpmap:96 PS/90000\r\n");
@@ -107,48 +124,47 @@ public class SIPCommander implements ISIPCommander {
                             content.append("a=fmtp:125 profile-level-id=42e01e\r\n");
                             content.append("a=rtpmap:99 MP4V-ES/90000\r\n");
                             content.append("a=fmtp:99 profile-level-id=3\r\n");
-                            content.append("a=rtpmap:98 H264/90000\r\n");
-                            content.append("a=rtpmap:97 MPEG4/90000\r\n");
-                            if("TCP-PASSIVE".equals(streamMode)){ // tcp被动模式
-                                content.append("a=setup:passive\r\n");
-                                content.append("a=connection:new\r\n");
-                            }else if ("TCP-ACTIVE".equals(streamMode)) { // tcp主动模式
-                                content.append("a=setup:active\r\n");
-                                content.append("a=connection:new\r\n");
-                            }
-                        }else {
-                            if("TCP-PASSIVE".equals(streamMode)) {
-                                content.append("m=video "+ smsConfig.getRtp().getMux_port() +" TCP/RTP/AVP 96 98 97\r\n");
-                            }else if ("TCP-ACTIVE".equals(streamMode)) {
-                                content.append("m=video "+ smsConfig.getRtp().getMux_port() +" TCP/RTP/AVP 96 98 97\r\n");
-                            }else if("UDP".equals(streamMode)) {
-                                content.append("m=video "+ smsConfig.getRtp().getMux_port() +" RTP/AVP 96 98 97\r\n");
+                        } else {
+                            switch (streamMode) {
+                                case "TCP-PASSIVE":
+                                case "TCP-ACTIVE":
+                                    content.append("m=video ")
+                                            .append(smsConfig.getRtp().getMux_port())
+                                            .append(" TCP/RTP/AVP 96 98 97\r\n");
+                                    break;
+                                case "UDP":
+                                    content.append("m=video ")
+                                            .append(smsConfig.getRtp().getMux_port())
+                                            .append(" RTP/AVP 96 98 97\r\n");
+                                    break;
                             }
                             content.append("a=recvonly\r\n");
                             content.append("a=rtpmap:96 PS/90000\r\n");
-                            content.append("a=rtpmap:98 H264/90000\r\n");
-                            content.append("a=rtpmap:97 MPEG4/90000\r\n");
-                            if ("TCP-PASSIVE".equals(streamMode)) { // tcp被动模式
-                                content.append("a=setup:passive\r\n");
-                                content.append("a=connection:new\r\n");
-                            } else if ("TCP-ACTIVE".equals(streamMode)) { // tcp主动模式
-                                content.append("a=setup:active\r\n");
-                                content.append("a=connection:new\r\n");
-                            }
                         }
-                        content.append("y="+ srsCreateChannelResp.getSsrc() +"\r\n");//ssrc
+                        content.append("a=rtpmap:98 H264/90000\r\n");
+                        content.append("a=rtpmap:97 MPEG4/90000\r\n");
+                        if ("TCP-PASSIVE".equals(streamMode)) { // tcp被动模式
+                            content.append("a=setup:passive\r\n");
+                            content.append("a=connection:new\r\n");
+                        } else if ("TCP-ACTIVE".equals(streamMode)) { // tcp主动模式
+                            content.append("a=setup:active\r\n");
+                            content.append("a=connection:new\r\n");
+                        }
+                        content.append("y=")
+                                .append(srsCreateChannelResp.getSsrc())
+                                .append("\r\n");//ssrc
                         String tm = Long.toString(System.currentTimeMillis());
 
                         CallIdHeader callIdHeader = "TCP".equals(streamMode) ? sipTcpProvider.getNewCallId()
                                 : sipUdpProvider.getNewCallId();
-                        Request request = null;
+                        Request request;
 
                         try {
                             SipURI sipURI = sipFactory
-                                .createAddressFactory()
-                                .createSipURI(channelId, StringUtils.hasText(device.getContactIP())?device.getContactIP():sipConfig.getRealm());
+                                    .createAddressFactory()
+                                    .createSipURI(channelId, StringUtils.hasText(device.getContactIP()) ? device.getContactIP() : sipConfig.getRealm());
 
-                            ArrayList<ViaHeader> viaHeaders = new ArrayList<ViaHeader>();
+                            ArrayList<ViaHeader> viaHeaders = new ArrayList<>();
                             ViaHeader viaHeader = sipFactory.createHeaderFactory()
                                     .createViaHeader(sipConfig.getIp(), sipConfig.getPort(), streamMode, null);
                             viaHeader.setRPort();
@@ -156,7 +172,7 @@ public class SIPCommander implements ISIPCommander {
 
                             SipURI fromSipURI = sipFactory
                                     .createAddressFactory()
-                                    .createSipURI(sipConfig.getSerial(),sipConfig.getRealm());
+                                    .createSipURI(sipConfig.getSerial(), sipConfig.getRealm());
                             Address fromAddress = sipFactory
                                     .createAddressFactory()
                                     .createAddress(fromSipURI);
@@ -166,13 +182,13 @@ public class SIPCommander implements ISIPCommander {
 
                             SipURI toSipURI = sipFactory
                                     .createAddressFactory()
-                                    .createSipURI(channelId,sipConfig.getRealm());
+                                    .createSipURI(channelId, sipConfig.getRealm());
                             Address toAddress = sipFactory
                                     .createAddressFactory()
                                     .createAddress(toSipURI);
                             ToHeader toHeader = sipFactory
                                     .createHeaderFactory()
-                                    .createToHeader(toAddress,null);
+                                    .createToHeader(toAddress, null);
 
                             MaxForwardsHeader maxForwards = sipFactory
                                     .createHeaderFactory()
@@ -190,14 +206,14 @@ public class SIPCommander implements ISIPCommander {
                                     .createAddressFactory()
                                     .createAddress(sipFactory
                                             .createAddressFactory()
-                                            .createSipURI(sipConfig.getSerial(), sipConfig.getIp()+":"+sipConfig.getPort())
+                                            .createSipURI(sipConfig.getSerial(), sipConfig.getIp() + ":" + sipConfig.getPort())
                                     );
 
                             request = sipFactory
                                     .createMessageFactory()
                                     .createRequest(sipURI, Request.INVITE, callIdHeader,
-                                            cSeqHeader,fromHeader, toHeader, viaHeaders,
-                                            maxForwards, contentTypeHeader,null);
+                                            cSeqHeader, fromHeader, toHeader, viaHeaders,
+                                            maxForwards, contentTypeHeader, content.toString());
                             request.addHeader(sipFactory.createHeaderFactory().createContactHeader(concatAddress));
 
                             SubjectHeader subjectHeader = sipFactory
@@ -208,28 +224,92 @@ public class SIPCommander implements ISIPCommander {
 
 
                             ClientTransaction clientTransaction = null;
-                            if("TCP".equals(streamMode)) {
+                            if ("TCP".equals(streamMode)) {
                                 clientTransaction = sipTcpProvider.getNewClientTransaction(request);
-                            } else if("UDP".equals(streamMode)) {
+                            } else if ("UDP".equals(streamMode)) {
                                 clientTransaction = sipUdpProvider.getNewClientTransaction(request);
                             }
-                            log.info("invite request：\n{}",request.toString());
-                            clientTransaction.sendRequest();
+                            log.info("invite request：\n{}", request.toString());
+                            if (clientTransaction != null)
+                                clientTransaction.sendRequest();
                         } catch (SipException | ParseException | InvalidArgumentException e) {
-                            log.error("Failed to send invite request",e);
+                            log.error("Failed to send invite request", e);
                             return Mono.error(e);
                         }
                         return Mono.fromFuture(streamPlayResponseSubscribe)
-                                .timeout(Duration.ofSeconds(timeout==null?15:timeout))
-                                .doFinally(signalType -> {
-                                    sipResponseHolder.remove(streamPlayResponseSubscribe.getKey(),streamPlayResponseSubscribe.getId());
-                                });
-                    }else return Mono.error(new Exception(jsonObject.toJSONString()));
+                                .timeout(Duration.ofSeconds(timeout == null ? 15 : timeout))
+                                .doFinally(signalType -> sipResponseHolder.remove(streamPlayResponseSubscribe.getKey(), streamPlayResponseSubscribe.getId()));
+                    } else return Mono.error(new Exception(jsonObject.toJSONString()));
                 });
     }
 
     @Override
     public void streamByeCmd(String deviceId, String channelId) {
 
+    }
+
+    @Override
+    public Mono<List<DeviceChannel>> catalogQuery(Device device, Integer sn, Integer timeout, SipCatalogResponseSubscribe catalogResponseSubscribe) {
+        StringBuilder catalogXml = new StringBuilder(200);
+        catalogXml.append("<?xml version=\"1.0\" encoding=\"GB2312\"?>\r\n");
+        catalogXml.append("<Query>\r\n");
+        catalogXml.append("<CmdType>Catalog</CmdType>\r\n");
+        catalogXml.append("<SN>")
+                .append(sn)
+                .append("</SN>\r\n");
+        catalogXml.append("<DeviceID>")
+                .append(device.getId())
+                .append("</DeviceID>\r\n");
+        catalogXml.append("</Query>\r\n");
+
+        String tm = Long.toString(System.currentTimeMillis());
+        CallIdHeader callIdHeader = "TCP".equals(device.getMediaTransport()) ? sipTcpProvider.getNewCallId()
+                : sipUdpProvider.getNewCallId();
+        Request request;
+
+        SipURI requestURI;
+        try {
+            requestURI = sipFactory.createAddressFactory().createSipURI(device.getId(), device.getContactIP());
+
+            ArrayList<ViaHeader> viaHeaders = new ArrayList<>();
+            ViaHeader viaHeader = sipFactory.createHeaderFactory().createViaHeader(sipConfig.getIp(), sipConfig.getPort(), device.getMediaTransport(), "z9hG4bK-ViaCatalog-" + tm);
+            viaHeader.setRPort();
+            viaHeaders.add(viaHeader);
+
+            SipURI fromSipURI = sipFactory.createAddressFactory().createSipURI(sipConfig.getSerial(),
+                    sipConfig.getIp() + ":" + sipConfig.getPort());
+            Address fromAddress = sipFactory.createAddressFactory().createAddress(fromSipURI);
+            FromHeader fromHeader = sipFactory.createHeaderFactory().createFromHeader(fromAddress, "FromCat" + tm);
+
+            SipURI toSipURI = sipFactory.createAddressFactory().createSipURI(device.getId(), sipConfig.getRealm());
+            Address toAddress = sipFactory.createAddressFactory().createAddress(toSipURI);
+            ToHeader toHeader = sipFactory.createHeaderFactory().createToHeader(toAddress, null);
+
+            MaxForwardsHeader maxForwards = sipFactory.createHeaderFactory().createMaxForwardsHeader(70);
+
+            CSeqHeader cSeqHeader = sipFactory.createHeaderFactory().createCSeqHeader(1L, Request.MESSAGE);
+
+            request = sipFactory.createMessageFactory().createRequest(requestURI, Request.MESSAGE, callIdHeader, cSeqHeader, fromHeader,
+                    toHeader, viaHeaders, maxForwards);
+            ContentTypeHeader contentTypeHeader = sipFactory.createHeaderFactory().createContentTypeHeader("Application", "MANSCDP+xml");
+            request.setContent(catalogXml.toString(), contentTypeHeader);
+
+
+            ClientTransaction clientTransaction = null;
+            if ("TCP".equals(device.getCommandTransport())) {
+                clientTransaction = sipTcpProvider.getNewClientTransaction(request);
+            } else if ("UDP".equals(device.getCommandTransport())) {
+                clientTransaction = sipUdpProvider.getNewClientTransaction(request);
+            }
+            log.info("invite request：\n{}", request.toString());
+            if (clientTransaction != null)
+                clientTransaction.sendRequest();
+        } catch (InvalidArgumentException | ParseException | SipException e) {
+            e.printStackTrace();
+        }
+
+        return Mono.fromFuture(catalogResponseSubscribe)
+                .timeout(Duration.ofSeconds(timeout == null ? 15 : timeout))
+                .doFinally(signalType -> sipResponseHolder.remove(catalogResponseSubscribe.getKey(), catalogResponseSubscribe.getId()));
     }
 }

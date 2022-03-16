@@ -21,6 +21,10 @@ public class Device {
      */
     private String name;
     /**
+     * 设备厂商
+     */
+    private String manufacturer;
+    /**
      * 设备类型,固定为国标设备"GB"
      */
     private String type;

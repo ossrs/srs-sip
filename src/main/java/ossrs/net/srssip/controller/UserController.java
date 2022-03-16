@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
  */
 @Slf4j
 @RestController()
-@RequestMapping("/user/")
+@RequestMapping("/api/v1/user/")
 public class UserController {
 
     @GetMapping("login")

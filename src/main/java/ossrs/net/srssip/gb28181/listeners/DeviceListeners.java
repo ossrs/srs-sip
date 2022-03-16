@@ -9,7 +9,11 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import ossrs.net.srssip.config.SipConfig;
 import ossrs.net.srssip.gb28181.domain.Device;
+import ossrs.net.srssip.gb28181.domain.DeviceChannel;
+import ossrs.net.srssip.gb28181.domain.DeviceInfo;
 import ossrs.net.srssip.gb28181.event.messageevent.MessageEvent;
+import ossrs.net.srssip.gb28181.event.request.CatalogMessageRequest;
+import ossrs.net.srssip.gb28181.event.request.DeviceInfoMessageRequest;
 import ossrs.net.srssip.gb28181.event.request.KeepLiveMessageRequest;
 import ossrs.net.srssip.gb28181.event.messageevent.AckEvent;
 import ossrs.net.srssip.gb28181.event.messageevent.RegisterEvent;
@@ -26,12 +30,15 @@ import javax.sip.SipException;
 import javax.sip.header.ContactHeader;
 import javax.sip.header.FromHeader;
 import javax.sip.header.HeaderFactory;
+import javax.sip.header.ViaHeader;
 import javax.sip.message.MessageFactory;
 import javax.sip.message.Request;
 import javax.sip.message.Response;
 import java.security.NoSuchAlgorithmException;
 import java.text.ParseException;
+import java.time.LocalDateTime;
 import java.util.Calendar;
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -67,15 +74,50 @@ public class DeviceListeners {
             AddressImpl address = (AddressImpl) fromHeader.getAddress();
             SipUri uri = (SipUri) address.getURI();
             String deviceId = uri.getUser();
-            Device device = deviceInterface.getById(deviceId);
-
-
             if (!registerEvent.doAuthenticatePlainTextPassword(sipConfig.getPassword())) {
                 response = messageFactory.createResponse(Response.UNAUTHORIZED, request);
                 new DigestServerAuthenticationHelper().generateChallenge(headerFactory, response, sipConfig.getRealm());
                 sendResponse(requestEvent, response);
                 return;
             }
+            Device device = deviceInterface.getById(deviceId);
+            LocalDateTime registerTime = LocalDateTime.now();
+            ViaHeader viaHeader = (ViaHeader) request.getHeader(ViaHeader.NAME);
+
+            //检查设备是否已存在
+            if(device==null){
+                device = new Device();
+                device.setId(deviceId);
+                device.setId(deviceId);
+                device.setType("GB");
+                device.setRecvStreamIP(sipConfig.getIp());
+                device.setContactIP(sipConfig.getIp());
+                device.setCatalogInterval(3600);
+                device.setSubscribeInterval(0);
+                device.setCatalogSubscribe(false);
+                device.setAlarmSubscribe(false);
+                device.setPositionSubscribe(false);
+                device.setOnline(true);
+                device.setPassword(sipConfig.getPassword());
+                device.setCommandTransport(viaHeader.getTransport());
+                device.setMediaTransport(viaHeader.getTransport());
+                device.setRemoteIP(viaHeader.getHost());
+                device.setRemotePort(viaHeader.getPort());
+                device.setLastRegisterAt(registerTime);
+                device.setLastKeepaliveAt(registerTime);
+                device.setUpdatedAt(registerTime);
+                device.setCreatedAt(registerTime);
+                deviceInterface.save(device);
+            }else {
+                device.setOnline(true);
+                device.setRemoteIP(viaHeader.getHost());
+                device.setRemotePort(viaHeader.getPort());
+                device.setLastRegisterAt(registerTime);
+                device.setLastKeepaliveAt(registerTime);
+                device.setUpdatedAt(registerTime);
+                deviceInterface.save(device);
+            }
+
             response = messageFactory.createResponse(Response.OK, requestEvent.getRequest());
             response.addHeader(headerFactory.createDateHeader(Calendar.getInstance(Locale.ENGLISH)));
             response.addHeader(requestEvent.getRequest().getHeader(ContactHeader.NAME));
@@ -84,8 +126,10 @@ public class DeviceListeners {
             log.info("接收到注册请求 {}",registerEvent.toString());
             if(registerEvent.getExpires()<=0){
                 //注销设备
+                device.setOnline(false);
+                device.setUpdatedAt(registerTime);
+                deviceInterface.save(device);
             }
-            //检查设备是否已存在
         } catch (NoSuchAlgorithmException | ParseException e) {
             e.printStackTrace();
         }
@@ -97,7 +141,18 @@ public class DeviceListeners {
         Request request = requestEvent.getRequest();
 
         try {
-            Response response = messageFactory.createResponse(Response.OK, request);
+            FromHeader fromHeader = (FromHeader) request.getHeader(FromHeader.NAME);
+            AddressImpl address = (AddressImpl) fromHeader.getAddress();
+            SipUri uri = (SipUri) address.getURI();
+            String deviceId = uri.getUser();
+            Device device = deviceInterface.getById(deviceId);
+            Response response;
+            if(device==null){
+                response = messageFactory.createResponse(Response.NOT_FOUND, request);
+                sendResponse(requestEvent,response);
+                return;
+            }
+            response = messageFactory.createResponse(Response.OK, request);
             sendResponse(requestEvent,response);
         } catch (ParseException e) {
             e.printStackTrace();
@@ -106,6 +161,17 @@ public class DeviceListeners {
 
     private void sendResponse(RequestEvent requestEvent, Response response) {
         sipMessageResponseHandler.sendResponse(requestEvent, response);
+    }
+
+    @EventListener
+    public void deviceInfo(DeviceInfoMessageRequest deviceInfoMessageRequest){
+        DeviceInfo deviceInfo = deviceInfoMessageRequest.getDeviceInfo();
+        Device device = deviceInterface.getById(deviceInfo.getCode());
+        if(device!=null){
+            device.setName(deviceInfo.getName());
+            device.setManufacturer(deviceInfo.getManufacturer());
+            deviceInterface.save(device);
+        }
     }
 
     @EventListener
@@ -134,5 +200,11 @@ public class DeviceListeners {
         } catch (ParseException e) {
             e.printStackTrace();
         }
+    }
+
+    @EventListener
+    public void catologMessage(CatalogMessageRequest catalogMessageRequest){
+        List<DeviceChannel> deviceChannelList = catalogMessageRequest.getDeviceChannel();
+        deviceInterface.saveDeviceChannel(deviceChannelList);
     }
 }

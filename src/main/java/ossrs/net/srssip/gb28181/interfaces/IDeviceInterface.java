@@ -1,6 +1,8 @@
 package ossrs.net.srssip.gb28181.interfaces;
 
 import ossrs.net.srssip.gb28181.domain.Device;
+import ossrs.net.srssip.gb28181.domain.DeviceChannel;
+import reactor.core.publisher.Mono;
 
 import java.util.List;
 
@@ -30,4 +32,10 @@ public interface IDeviceInterface {
     Device info(String serial);
 
     Device getById(String deviceId);
+
+    boolean save(Device device);
+
+    void saveDeviceChannel(List<DeviceChannel> deviceChannels);
+
+    List<DeviceChannel> getDeviceChannels(String deviceId);
 }
