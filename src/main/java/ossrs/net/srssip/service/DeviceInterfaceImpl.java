@@ -6,6 +6,7 @@ import ossrs.net.srssip.gb28181.domain.DeviceChannel;
 import ossrs.net.srssip.gb28181.event.response.InviteResponseEvent;
 import ossrs.net.srssip.gb28181.interfaces.IDeviceInterface;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -28,13 +29,8 @@ public class DeviceInterfaceImpl implements IDeviceInterface {
     private ConcurrentHashMap<String, Map<String, InviteResponseEvent>> INVITE_RESPONSE_EVENT_MAP = new ConcurrentHashMap<>();
 
     @Override
-    public List<Device> list(int start, int limit, String q, boolean online) {
-        return null;
-    }
-
-    @Override
-    public Device info(String serial) {
-        return null;
+    public List<Device> list(int start, int limit, String q, boolean online, String sort, String order) {
+        return new ArrayList<>(DEVICE_LIST.values());
     }
 
     @Override
@@ -76,6 +72,11 @@ public class DeviceInterfaceImpl implements IDeviceInterface {
     @Override
     public InviteResponseEvent getInviteResponseEvent(String deviceId, String channelsId) {
         return INVITE_RESPONSE_EVENT_MAP.get(deviceId).get(channelsId);
+    }
+
+    @Override
+    public List<DeviceChannel> channellist(String serial, String code, String civilcode, String block, String channel_type, String dir_serial, Integer start, Integer limit, String q, Boolean online) {
+        return new ArrayList<>(DEVICE_CHANNEL_LIST.values());
     }
 
 

@@ -1,6 +1,7 @@
 package ossrs.net.srssip.gb28181.domain;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.swagger.annotations.ApiModel;
 import lombok.*;
 
 import java.io.Serializable;
@@ -16,6 +17,7 @@ import java.io.Serializable;
 @Builder
 @Data
 @EqualsAndHashCode(callSuper = false)
+@ApiModel("媒体流信息")
 public class StreamInfo implements Serializable {
 
     private static final long serialVersionUID = -7132538169020897684L;

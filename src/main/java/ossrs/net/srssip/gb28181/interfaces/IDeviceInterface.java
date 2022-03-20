@@ -3,7 +3,6 @@ package ossrs.net.srssip.gb28181.interfaces;
 import ossrs.net.srssip.gb28181.domain.Device;
 import ossrs.net.srssip.gb28181.domain.DeviceChannel;
 import ossrs.net.srssip.gb28181.event.response.InviteResponseEvent;
-import reactor.core.publisher.Mono;
 
 import java.util.List;
 
@@ -21,17 +20,17 @@ public interface IDeviceInterface {
      * @param q 搜索关键字
      * @param online 在线状态\n
      *               允许值：true，false
+     * @param sort
+     * @param order
      * @return 设备列表
      */
-    List<Device> list(int start, int limit, String q, boolean online);
+    List<Device> list(int start, int limit, String q, boolean online, String sort, String order);
 
     /**
      * 查询指定设备信息
-     * @param serial 设备国标号
+     * @param deviceId 设备国标号
      * @return 设备信息
      */
-    Device info(String serial);
-
     Device getById(String deviceId);
 
     boolean save(Device device);
@@ -45,4 +44,6 @@ public interface IDeviceInterface {
     boolean removeInviteResponseEvent(String deviceId, String channelsId);
 
     InviteResponseEvent getInviteResponseEvent(String deviceId, String channelsId);
+
+    List<DeviceChannel> channellist(String serial, String code, String civilcode, String block, String channel_type, String dir_serial, Integer start, Integer limit, String q, Boolean online);
 }
