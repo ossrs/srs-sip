@@ -33,14 +33,6 @@ public class Device {
      */
     private Integer channelCount;
     /**
-     * 针对该设备的收流IP, 为空时默认使用SipConfig.ip
-     */
-    private String recvStreamIP;
-    /**
-     * 针对该设备的信令联络IP, 为空时默认使用SipConfig.ip
-     */
-    private String contactIP;
-    /**
      * 指定到 SRS ID, 为空时, 自动选择负载最小的 SRS
      */
     private String srsId;

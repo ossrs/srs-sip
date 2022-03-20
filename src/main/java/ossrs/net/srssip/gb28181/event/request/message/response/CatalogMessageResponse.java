@@ -1,13 +1,16 @@
-package ossrs.net.srssip.gb28181.event.request;
+package ossrs.net.srssip.gb28181.event.request.message.response;
 
 import lombok.extern.slf4j.Slf4j;
-import ossrs.net.srssip.gb28181.annotation.MessageRequestEventHandler;
+import ossrs.net.srssip.gb28181.annotation.MessageRequestHandler;
 import ossrs.net.srssip.gb28181.domain.DeviceChannel;
+import ossrs.net.srssip.gb28181.event.request.message.MessageRequestAbstract;
+import ossrs.net.srssip.gb28181.util.XmlUtil;
 
 import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * @ Description ossrs.net.srssip.gb28181.event.request
@@ -17,8 +20,8 @@ import java.util.List;
  */
 @Slf4j
 @XmlRootElement(name = "Response")
-@MessageRequestEventHandler(value = "Catalog")
-public class CatalogMessageRequest extends MessageRequestAbstract {
+@MessageRequestHandler(type = "Response", cmd = "Catalog")
+public class CatalogMessageResponse extends MessageRequestAbstract {
 
     private String deviceId;
 
@@ -33,6 +36,28 @@ public class CatalogMessageRequest extends MessageRequestAbstract {
     @Override
     public void process() {
         super.process();
+        String content = this.content;
+        CatalogMessageResponse catalogMessageResponse = (CatalogMessageResponse) XmlUtil.xmlToObject(content, this);
+        if(catalogMessageResponse !=null){
+            deviceChannel =  catalogMessageResponse.getDeviceList().getItem().stream().map(item ->
+                    DeviceChannel.builder()
+                            .Address(item.getAddress())
+                            .CivilCode(item.getCivilCode())
+                            .channelID(item.getDeviceId())
+                            .deviceId(catalogMessageResponse.getDeviceId())
+                            .Manufacturer(item.getManufacturer())
+                            .Model(item.getModel())
+                            .Name(item.getName())
+                            .Owner(item.getOwner())
+                            .RegisterWay(item.getRegisterWay())
+                            .Secrecy(item.getSecrecy())
+                            .Parental(item.getParental())
+                            .ParentID(item.getParentID())
+                            .SafetyWay(item.getSafetyWay())
+                            .Status(item.getStatus())
+                            .build()).collect(Collectors.toList());
+        }
+        this.messageRequestAbstract = catalogMessageResponse;
     }
 
     public String getDeviceId() {

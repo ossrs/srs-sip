@@ -15,6 +15,7 @@ import java.util.concurrent.CompletableFuture;
 public class SipCatalogResponseSubscribe extends CompletableFuture<List<DeviceChannel>> {
     private String key;
     private String id;
+    private int SumNum;
     private List<DeviceChannel> channelListVo = new ArrayList<>();
 
     public SipCatalogResponseSubscribe() {

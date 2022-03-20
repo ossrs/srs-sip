@@ -1,6 +1,7 @@
-package ossrs.net.srssip.gb28181.event.request;
+package ossrs.net.srssip.gb28181.event.request.message.notify;
 
-import ossrs.net.srssip.gb28181.annotation.MessageRequestEventHandler;
+import ossrs.net.srssip.gb28181.annotation.MessageRequestHandler;
+import ossrs.net.srssip.gb28181.event.request.message.MessageRequestAbstract;
 import ossrs.net.srssip.gb28181.util.XmlUtil;
 
 import javax.xml.bind.annotation.XmlElement;
@@ -13,7 +14,7 @@ import javax.xml.bind.annotation.XmlRootElement;
  * @ Date 9/3/2022 上午2:25
  */
 @XmlRootElement(name = "Notify")
-@MessageRequestEventHandler("Keepalive")
+@MessageRequestHandler(type = "Notify", cmd = "Keepalive")
 public class KeepLiveMessageRequest extends MessageRequestAbstract {
     private String cmdType;
 

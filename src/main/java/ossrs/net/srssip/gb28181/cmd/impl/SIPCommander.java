@@ -1,6 +1,8 @@
 package ossrs.net.srssip.gb28181.cmd.impl;
 
 import com.alibaba.fastjson.JSONObject;
+import gov.nist.javax.sip.message.SIPRequest;
+import gov.nist.javax.sip.stack.SIPDialog;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -13,9 +15,11 @@ import ossrs.net.srssip.gb28181.cmd.ISIPCommander;
 import ossrs.net.srssip.gb28181.domain.Device;
 import ossrs.net.srssip.gb28181.domain.DeviceChannel;
 import ossrs.net.srssip.gb28181.domain.StreamInfo;
+import ossrs.net.srssip.gb28181.event.response.InviteResponseEvent;
 import ossrs.net.srssip.gb28181.event.subscribe.SipCatalogResponseSubscribe;
 import ossrs.net.srssip.gb28181.event.subscribe.SipResponseHolder;
 import ossrs.net.srssip.gb28181.event.subscribe.SipStreamPlayResponseSubscribe;
+import ossrs.net.srssip.gb28181.interfaces.IDeviceInterface;
 import reactor.core.publisher.Mono;
 
 import javax.annotation.Resource;
@@ -43,6 +47,9 @@ import static ossrs.net.srssip.gb28181.event.subscribe.SipResponseHolder.CALLBAC
 public class SIPCommander implements ISIPCommander {
 
     private final static String CREATE_CHANNEL_URL = "http://%s:%d/api/v1/gb28181?action=create_channel&id=%s&stream=%s&port_mode=fixed&app=%s";
+
+    private final static String DELETE_CHANNEL_URL = "http://%s:%d/api/v1/gb28181?action=delete_channel&id=%s&chid=%s";
+
     @Resource
     private SipConfig sipConfig;
     @Resource
@@ -57,6 +64,8 @@ public class SIPCommander implements ISIPCommander {
     private SipProvider sipTcpProvider;
     @Resource
     private SipProvider sipUdpProvider;
+    @Resource
+    private IDeviceInterface deviceInterface;
 
     @Override
     public Mono<StreamInfo> playStreamCmd(Device device, String channelId, String audio, String transport,
@@ -66,8 +75,8 @@ public class SIPCommander implements ISIPCommander {
         String key = CALLBACK_CMD_PLAY + device.getId() + channelId;
         String url = String.format(CREATE_CHANNEL_URL,
                 smsConfig.getHost(), smsConfig.getHttpPort(),
-                device.getId().concat("_").concat(channelId),
-                device.getId().concat("_").concat(channelId), "gb28181");
+                device.getId().concat("@").concat(channelId),
+                device.getId().concat("@").concat(channelId), "gb28181");
         return WebClient.create(url)
                 .get()
                 .retrieve()
@@ -162,7 +171,8 @@ public class SIPCommander implements ISIPCommander {
                         try {
                             SipURI sipURI = sipFactory
                                     .createAddressFactory()
-                                    .createSipURI(channelId, StringUtils.hasText(device.getContactIP()) ? device.getContactIP() : sipConfig.getRealm());
+                                    .createSipURI(channelId,
+                                            device.getRemoteIP()+":"+device.getRemotePort());
 
                             ArrayList<ViaHeader> viaHeaders = new ArrayList<>();
                             ViaHeader viaHeader = sipFactory.createHeaderFactory()
@@ -172,7 +182,7 @@ public class SIPCommander implements ISIPCommander {
 
                             SipURI fromSipURI = sipFactory
                                     .createAddressFactory()
-                                    .createSipURI(sipConfig.getSerial(), sipConfig.getRealm());
+                                    .createSipURI(sipConfig.getSerial(), sipConfig.getIp()+":"+ sipConfig.getPort());
                             Address fromAddress = sipFactory
                                     .createAddressFactory()
                                     .createAddress(fromSipURI);
@@ -202,7 +212,7 @@ public class SIPCommander implements ISIPCommander {
                                     .createHeaderFactory()
                                     .createContentTypeHeader("APPLICATION", "SDP");
 
-                            Address concatAddress = sipFactory
+                            Address contactAddress = sipFactory
                                     .createAddressFactory()
                                     .createAddress(sipFactory
                                             .createAddressFactory()
@@ -214,7 +224,7 @@ public class SIPCommander implements ISIPCommander {
                                     .createRequest(sipURI, Request.INVITE, callIdHeader,
                                             cSeqHeader, fromHeader, toHeader, viaHeaders,
                                             maxForwards, contentTypeHeader, content.toString());
-                            request.addHeader(sipFactory.createHeaderFactory().createContactHeader(concatAddress));
+                            request.addHeader(sipFactory.createHeaderFactory().createContactHeader(contactAddress));
 
                             SubjectHeader subjectHeader = sipFactory
                                     .createHeaderFactory()
@@ -229,23 +239,63 @@ public class SIPCommander implements ISIPCommander {
                             } else if ("UDP".equals(streamMode)) {
                                 clientTransaction = sipUdpProvider.getNewClientTransaction(request);
                             }
-                            log.info("invite request：\n{}", request.toString());
-                            if (clientTransaction != null)
+                            if (clientTransaction != null){
                                 clientTransaction.sendRequest();
+                                log.info("invite {} request：\n{}", streamMode, request.toString());
+                            }
                         } catch (SipException | ParseException | InvalidArgumentException e) {
                             log.error("Failed to send invite request", e);
                             return Mono.error(e);
                         }
                         return Mono.fromFuture(streamPlayResponseSubscribe)
                                 .timeout(Duration.ofSeconds(timeout == null ? 15 : timeout))
-                                .doFinally(signalType -> sipResponseHolder.remove(streamPlayResponseSubscribe.getKey(), streamPlayResponseSubscribe.getId()));
+                                .doFinally(signalType -> sipResponseHolder.remove(streamPlayResponseSubscribe.getKey(),
+                                        streamPlayResponseSubscribe.getId()));
                     } else return Mono.error(new Exception(jsonObject.toJSONString()));
                 });
     }
 
     @Override
     public void streamByeCmd(String deviceId, String channelId) {
+        InviteResponseEvent inviteResponseEvent = deviceInterface.getInviteResponseEvent(deviceId,channelId);
+        ClientTransaction transaction = inviteResponseEvent.getResponseEvent().getClientTransaction();
+        SIPDialog dialog = (SIPDialog) inviteResponseEvent.getDialog();
+        if (transaction == null) {
+            log.info("transaction lost on streamByeCmd deviceId:{},channelId:{}",deviceId,channelId);
+            return;
+        }
+        if(dialog == null){
+            log.info("dialog lost on streamByeCmd deviceId:{},channelId:{}",deviceId,channelId);
+            return;
+        }
 
+        try {
+            Request byeRequest = dialog.createRequest(Request.BYE);
+            SipURI byeURI = (SipURI) byeRequest.getRequestURI();
+            SIPRequest request = (SIPRequest)transaction.getRequest();
+            byeURI.setHost(request.getRemoteAddress().getHostName());
+            byeURI.setPort(request.getRemotePort());
+            ViaHeader viaHeader = (ViaHeader) byeRequest.getHeader(ViaHeader.NAME);
+            String protocol = viaHeader.getTransport().toUpperCase();
+            ClientTransaction clientTransaction = null;
+            if("TCP".equals(protocol)) {
+                clientTransaction = sipTcpProvider.getNewClientTransaction(byeRequest);
+            } else if("UDP".equals(protocol)) {
+                clientTransaction = sipUdpProvider.getNewClientTransaction(byeRequest);
+            }
+            dialog.sendRequest(clientTransaction);
+
+            String url = String.format(DELETE_CHANNEL_URL,
+                    smsConfig.getHost(), smsConfig.getHttpPort(),
+                    deviceId,channelId);
+            WebClient.create(url)
+                    .get()
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .subscribe(s -> log.info("Notify SRS to delete media channel result : {}",s));
+        } catch (SipException | ParseException e) {
+            log.error("stop stream error",e);
+        }
     }
 
     @Override
@@ -265,19 +315,22 @@ public class SIPCommander implements ISIPCommander {
         String tm = Long.toString(System.currentTimeMillis());
         CallIdHeader callIdHeader = "TCP".equals(device.getMediaTransport()) ? sipTcpProvider.getNewCallId()
                 : sipUdpProvider.getNewCallId();
-        Request request;
-
-        SipURI requestURI;
         try {
-            requestURI = sipFactory.createAddressFactory().createSipURI(device.getId(), device.getContactIP());
+            SipURI requestURI = sipFactory.createAddressFactory()
+                    .createSipURI(device.getId(), device.getRemoteIP()+":"+device.getRemotePort());
 
             ArrayList<ViaHeader> viaHeaders = new ArrayList<>();
-            ViaHeader viaHeader = sipFactory.createHeaderFactory().createViaHeader(sipConfig.getIp(), sipConfig.getPort(), device.getMediaTransport(), "z9hG4bK-ViaCatalog-" + tm);
+            ViaHeader viaHeader = sipFactory.createHeaderFactory()
+                    .createViaHeader(
+                            sipConfig.getIp(),
+                            sipConfig.getPort(),
+                            device.getMediaTransport(),
+                            "z9hG4bK" + tm);
             viaHeader.setRPort();
             viaHeaders.add(viaHeader);
 
             SipURI fromSipURI = sipFactory.createAddressFactory().createSipURI(sipConfig.getSerial(),
-                    sipConfig.getIp() + ":" + sipConfig.getPort());
+                    sipConfig.getRealm());
             Address fromAddress = sipFactory.createAddressFactory().createAddress(fromSipURI);
             FromHeader fromHeader = sipFactory.createHeaderFactory().createFromHeader(fromAddress, "FromCat" + tm);
 
@@ -289,7 +342,7 @@ public class SIPCommander implements ISIPCommander {
 
             CSeqHeader cSeqHeader = sipFactory.createHeaderFactory().createCSeqHeader(1L, Request.MESSAGE);
 
-            request = sipFactory.createMessageFactory().createRequest(requestURI, Request.MESSAGE, callIdHeader, cSeqHeader, fromHeader,
+            Request request = sipFactory.createMessageFactory().createRequest(requestURI, Request.MESSAGE, callIdHeader, cSeqHeader, fromHeader,
                     toHeader, viaHeaders, maxForwards);
             ContentTypeHeader contentTypeHeader = sipFactory.createHeaderFactory().createContentTypeHeader("Application", "MANSCDP+xml");
             request.setContent(catalogXml.toString(), contentTypeHeader);
@@ -301,9 +354,10 @@ public class SIPCommander implements ISIPCommander {
             } else if ("UDP".equals(device.getCommandTransport())) {
                 clientTransaction = sipUdpProvider.getNewClientTransaction(request);
             }
-            log.info("invite request：\n{}", request.toString());
-            if (clientTransaction != null)
+            if (clientTransaction != null){
                 clientTransaction.sendRequest();
+                log.info("catalogQuery request：\n{}", request.toString());
+            }
         } catch (InvalidArgumentException | ParseException | SipException e) {
             e.printStackTrace();
         }

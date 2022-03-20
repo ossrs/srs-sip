@@ -2,12 +2,12 @@ package ossrs.net.srssip.gb28181.listeners.factory;
 
 import lombok.extern.slf4j.Slf4j;
 import org.reflections.Reflections;
-import ossrs.net.srssip.gb28181.annotation.MessageRequestEventHandler;
-import ossrs.net.srssip.gb28181.annotation.MessageResponseEventHandler;
-import ossrs.net.srssip.gb28181.annotation.MessageEventHandler;
-import ossrs.net.srssip.gb28181.event.request.MessageRequestAbstract;
-import ossrs.net.srssip.gb28181.event.messageevent.MessageEventAbstract;
-import ossrs.net.srssip.gb28181.event.response.MessageResponseAbstract;
+import ossrs.net.srssip.gb28181.annotation.RequestEventHandler;
+import ossrs.net.srssip.gb28181.annotation.MessageRequestHandler;
+import ossrs.net.srssip.gb28181.annotation.ResponseEventHandler;
+import ossrs.net.srssip.gb28181.event.request.RequestEventAbstract;
+import ossrs.net.srssip.gb28181.event.request.message.MessageRequestAbstract;
+import ossrs.net.srssip.gb28181.event.response.ResponseEventAbstract;
 
 import javax.sip.RequestEvent;
 import javax.sip.ResponseEvent;
@@ -26,80 +26,84 @@ public class MessageEventFactory {
 
     public static MessageEventFactory INSTANCE = new MessageEventFactory();
 
-    private static final Map<String, MessageEventAbstract> messageEventMap = new ConcurrentHashMap<>();
+    private static final Map<String, RequestEventAbstract> REQUEST_EVENT_MAP = new ConcurrentHashMap<>();
 
-    private static final Map<String, MessageRequestAbstract> messageRequestMap = new ConcurrentHashMap<>();
+    private static final Map<String,Map<String,MessageRequestAbstract> > MESSAGE_REQUEST_MAP = new ConcurrentHashMap<>();
 
-    private static final Map<String, MessageResponseAbstract> messageResponseMap = new ConcurrentHashMap<>();
+    private static final Map<String, ResponseEventAbstract> RESPONSE_EVENT_MAP = new ConcurrentHashMap<>();
     static {
         Reflections reflections = new Reflections("ossrs.net.srssip.gb28181.event.*");
-        initMessageHandler(reflections);
-        initMessageRequestHandler(reflections);
+        initMessageRequestEventHandler(reflections);
+        initMessageRequest(reflections);
         initMessageResponseHandler(reflections);
     }
 
-    private static void initMessageHandler(Reflections reflections){
-        Set<Class<?>> classes = reflections.getTypesAnnotatedWith(MessageEventHandler.class);
+    private static void initMessageRequest(Reflections reflections) {
+        Set<Class<?>> classes = reflections.getTypesAnnotatedWith(MessageRequestHandler.class);
         for (Class<?> c : classes) {
+            Object bean = null;
             try {
-                Object o = c.newInstance();
-                if(o instanceof MessageEventAbstract){
-                    MessageEventHandler handler = c.getAnnotation(MessageEventHandler.class);
-                    messageEventMap.put(handler.value(), (MessageEventAbstract) o);
-                }
-            } catch (InstantiationException | IllegalAccessException e) {
-                log.error("init message handler failed");
-            }
-        }
-
-    }
-
-    private static void initMessageRequestHandler(Reflections reflections){
-        Set<Class<?>> classes = reflections.getTypesAnnotatedWith(MessageRequestEventHandler.class);
-        classes.forEach(aClass -> {
-            try {
-                Object o = aClass.newInstance();
-                if(o instanceof MessageRequestAbstract){
-                    MessageRequestEventHandler handler = aClass.getAnnotation(MessageRequestEventHandler.class);
-                    messageRequestMap.put(handler.value(), (MessageRequestAbstract) o);
+                bean = c.newInstance();
+                if (bean instanceof MessageRequestAbstract) {
+                    MessageRequestHandler annotation = c.getAnnotation(MessageRequestHandler.class);
+                    MESSAGE_REQUEST_MAP.putIfAbsent(annotation.type(),new ConcurrentHashMap<>());
+                    MESSAGE_REQUEST_MAP.get(annotation.type())
+                            .put(annotation.cmd(), (MessageRequestAbstract)bean);
                 }
             } catch (InstantiationException | IllegalAccessException e) {
                 log.error("init message request handler failed");
+            }
+        }
+    }
+
+
+    private static void initMessageRequestEventHandler(Reflections reflections){
+        Set<Class<?>> classes = reflections.getTypesAnnotatedWith(RequestEventHandler.class);
+        classes.forEach(aClass -> {
+            try {
+                Object o = aClass.newInstance();
+                if(o instanceof RequestEventAbstract){
+                    RequestEventHandler handler = aClass.getAnnotation(RequestEventHandler.class);
+                    REQUEST_EVENT_MAP.put(handler.value(), (RequestEventAbstract) o);
+                }
+            } catch (InstantiationException | IllegalAccessException e) {
+                log.error("init request event handler failed");
             }
         });
     }
 
     private static void initMessageResponseHandler(Reflections reflections){
-        Set<Class<?>> classes = reflections.getTypesAnnotatedWith(MessageResponseEventHandler.class);
+        Set<Class<?>> classes = reflections.getTypesAnnotatedWith(ResponseEventHandler.class);
         classes.forEach(aClass -> {
             try {
                 Object o = aClass.newInstance();
-                if(o instanceof MessageResponseAbstract){
-                    MessageResponseEventHandler handler = aClass.getAnnotation(MessageResponseEventHandler.class);
-                    messageResponseMap.put(handler.value(), (MessageResponseAbstract) o);
+                if(o instanceof ResponseEventAbstract){
+                    ResponseEventHandler handler = aClass.getAnnotation(ResponseEventHandler.class);
+                    RESPONSE_EVENT_MAP.put(handler.value(), (ResponseEventAbstract) o);
                 }
             } catch (InstantiationException | IllegalAccessException e) {
-                log.error("init message response handler failed");
+                log.error("init response event handler failed");
             }
         });
     }
 
-    public MessageEventAbstract getMessageEvent(RequestEvent requestEvent){
+    public RequestEventAbstract getRequestEvent(RequestEvent requestEvent){
         String method = requestEvent.getRequest().getMethod();
-        MessageEventAbstract messageEventAbstract = messageEventMap.get(method);
-        messageEventAbstract.constructor(requestEvent);
-        return messageEventAbstract;
+        RequestEventAbstract requestEventAbstract = REQUEST_EVENT_MAP.get(method);
+        requestEventAbstract.constructor(requestEvent);
+        return requestEventAbstract;
     }
 
-    public MessageRequestAbstract getMessageRequest(String requestType, RequestEvent requestEvent){
-        MessageRequestAbstract messageRequestAbstract = messageRequestMap.get(requestType);
-        messageRequestAbstract.constructor(requestEvent);
-        return messageRequestAbstract;
+
+    public ResponseEventAbstract getResponseEvent(String method, ResponseEvent responseEvent){
+        ResponseEventAbstract responseEventAbstract = RESPONSE_EVENT_MAP.get(method);
+        responseEventAbstract.constructor(responseEvent);
+        return responseEventAbstract;
     }
 
-    public MessageResponseAbstract getMessageResponse(String method, ResponseEvent responseEvent){
-        MessageResponseAbstract messageResponseAbstract = messageResponseMap.get(method);
-        messageResponseAbstract.constructor(responseEvent);
-        return messageResponseAbstract;
+    public MessageRequestAbstract getMessageRequest(String messageType, String cmdType, RequestEvent requestEvent) {
+        MessageRequestAbstract requestAbstract = MESSAGE_REQUEST_MAP.get(messageType).get( cmdType);
+        requestAbstract.constructor(requestEvent);
+        return requestAbstract;
     }
 }

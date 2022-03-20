@@ -1,8 +1,9 @@
-package ossrs.net.srssip.gb28181.event.request;
+package ossrs.net.srssip.gb28181.event.request.message.response;
 
 import lombok.extern.slf4j.Slf4j;
-import ossrs.net.srssip.gb28181.annotation.MessageRequestEventHandler;
+import ossrs.net.srssip.gb28181.annotation.MessageRequestHandler;
 import ossrs.net.srssip.gb28181.domain.DeviceInfo;
+import ossrs.net.srssip.gb28181.event.request.message.MessageRequestAbstract;
 import ossrs.net.srssip.gb28181.util.XmlUtil;
 
 import javax.xml.bind.annotation.XmlElement;
@@ -16,8 +17,8 @@ import javax.xml.bind.annotation.XmlRootElement;
  */
 @Slf4j
 @XmlRootElement(name = "Response")
-@MessageRequestEventHandler(value = "DeviceInfo")
-public class DeviceInfoMessageRequest extends MessageRequestAbstract{
+@MessageRequestHandler(type ="Response" , cmd = "DeviceInfo")
+public class DeviceInfoMessageRequest extends MessageRequestAbstract {
 
     private String deviceId;
 

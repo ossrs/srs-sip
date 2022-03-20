@@ -14,7 +14,7 @@ import javax.validation.constraints.NotEmpty;
  */
 @Data
 @Component
-@ConfigurationProperties(prefix = "sms", ignoreInvalidFields = true)
+@ConfigurationProperties(prefix = "srs.sms", ignoreInvalidFields = true)
 public class SmsConfig {
     @NotEmpty(message = "serial 不能为空")
     private String serial;
@@ -27,6 +27,10 @@ public class SmsConfig {
     private Boolean use_wan_ip_recv_stream;
 
     private String host;
+    private Integer Port;
+
+    private Integer RTMPPort;
+    private Integer HTTPSPort;
 
     private Rtp rtp;
 

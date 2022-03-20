@@ -2,6 +2,7 @@ package ossrs.net.srssip.gb28181.interfaces;
 
 import ossrs.net.srssip.gb28181.domain.Device;
 import ossrs.net.srssip.gb28181.domain.DeviceChannel;
+import ossrs.net.srssip.gb28181.event.response.InviteResponseEvent;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
@@ -38,4 +39,10 @@ public interface IDeviceInterface {
     void saveDeviceChannel(List<DeviceChannel> deviceChannels);
 
     List<DeviceChannel> getDeviceChannels(String deviceId);
+
+    void putInviteResponseEvent(String deviceId, String channelsId, InviteResponseEvent inviteResponseEvent);
+
+    boolean removeInviteResponseEvent(String deviceId, String channelsId);
+
+    InviteResponseEvent getInviteResponseEvent(String deviceId, String channelsId);
 }

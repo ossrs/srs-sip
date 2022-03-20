@@ -5,7 +5,7 @@ srs:
     audio_enable: true
   sip:
     name: srs-sip
-    serial: 34020000002020000001
+    serial: 34020000002000000001
     realm: 3402000000
     ip: 192.168.50.50
     port: 5060
@@ -17,7 +17,7 @@ srs:
     query_catalog_interval: 60
     trace_level: NONE
     log_message_content: false
-  srs:
+  sms:
     serial: 34020000002020000001
     realm: 3402000000
     http_port: 1985
@@ -72,3 +72,12 @@ user-settings:
   # 推流直播是否开启录制
   record-push-live: true
   auto-apply-play: false
+sa-token:
+  token-session-check-login: false
+springdoc:
+  api-docs:
+    path: /api-docs
+  packages-to-scan: ossrs.net.srssip.controller
+  swagger-ui:
+    disable-swagger-default-url: true
+    path: /swagger-ui.html

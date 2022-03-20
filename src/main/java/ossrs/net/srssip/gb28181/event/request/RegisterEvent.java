@@ -1,9 +1,9 @@
-package ossrs.net.srssip.gb28181.event.messageevent;
+package ossrs.net.srssip.gb28181.event.request;
 
 import gov.nist.javax.sip.address.SipUri;
 import gov.nist.javax.sip.header.Expires;
 import lombok.Getter;
-import ossrs.net.srssip.gb28181.annotation.MessageEventHandler;
+import ossrs.net.srssip.gb28181.annotation.RequestEventHandler;
 import ossrs.net.srssip.util.DigestServerAuthenticationHelper;
 
 import javax.sip.header.AuthorizationHeader;
@@ -15,14 +15,14 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Optional;
 
 /**
- * @ Description ossrs.net.srssip.gb28181.event.messageevent
+ * @ Description ossrs.net.srssip.gb28181.event.request.messageevent
  * @ Author StormBirds
  * @ Email xbaojun@gmail.com
  * @ Date 24/2/2022 上午1:29
  */
 @Getter
-@MessageEventHandler(value = "REGISTER")
-public class RegisterEvent extends MessageEventAbstract{
+@RequestEventHandler(value = "REGISTER")
+public class RegisterEvent extends RequestEventAbstract {
 
     private AuthorizationHeader authHeader;
 

@@ -27,7 +27,7 @@ public class SaTokenConfigure {
         /**
          * 注册 [Sa-Token全局过滤器]
          */
-        @Bean
+//        @Bean
         public SaReactorFilter getSaReactorFilter() {
             return new SaReactorFilter()
                     // 指定 [拦截路由]
@@ -40,6 +40,16 @@ public class SaTokenConfigure {
                         SaRouter.match("/**", "/user/login", StpUtil::checkLogin);
                     })
                     .setExcludeList(Arrays.asList(
+                            "/actuator/**",
+                            "/api-docs/**",
+                            "/static/**",
+                            "/error",
+                            "/*.html",
+                            "/**/*.html",
+                            "/**/*.css",
+                            "/**/*.js",
+                            "/swagger-ui.html",
+                            "/swagger-resources/**",
                             "/user/login",
                             "/user/isLogin",
                             "/user/logout"

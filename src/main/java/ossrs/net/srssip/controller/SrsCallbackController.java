@@ -17,7 +17,7 @@ import ossrs.net.srssip.dto.*;
  */
 @Slf4j
 @RestController
-@RequestMapping("/srscallback")
+@RequestMapping("/api/v1/srsCallback")
 public class SrsCallbackController {
 
     /**
@@ -29,7 +29,7 @@ public class SrsCallbackController {
     @PostMapping("/clients")
     public int clients(@RequestBody SrsPostClientsDTO postClientsDTO) {
         log.info("Clients 事件 :{}", postClientsDTO.toString());
-        return StpUtil.isLogin() ? 0 : 401;
+        return 0;
     }
 
     /**
@@ -41,7 +41,7 @@ public class SrsCallbackController {
     @PostMapping("/streams")
     public int streams(@RequestBody SrsPostStreamsDTO postStreamsDTO) {
         log.info("Streams 事件：{}", postStreamsDTO);
-        return StpUtil.isLogin() ? 0 : 401;
+        return 0;
     }
 
     /**
@@ -59,7 +59,7 @@ public class SrsCallbackController {
         } else if ("on_play".equals(postSessionsDTO.getAction())) {
 
         }
-        return StpUtil.isLogin() ? 0 : 401;
+        return 0;
     }
 
     @PostMapping("/dvrs")

@@ -1,5 +1,9 @@
 package ossrs.net.srssip.gb28181.domain;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.NoArgsConstructor;
+
 import javax.xml.bind.annotation.XmlElement;
 import java.io.Serializable;
 
@@ -9,6 +13,9 @@ import java.io.Serializable;
  * @ Email xbaojun@gmail.com
  * @ Date 14/3/2022 下午11:09
  */
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
 public class DeviceChannel implements Serializable {
 
     private String deviceId;

@@ -3,9 +3,11 @@ package ossrs.net.srssip.service;
 import org.springframework.stereotype.Service;
 import ossrs.net.srssip.gb28181.domain.Device;
 import ossrs.net.srssip.gb28181.domain.DeviceChannel;
+import ossrs.net.srssip.gb28181.event.response.InviteResponseEvent;
 import ossrs.net.srssip.gb28181.interfaces.IDeviceInterface;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -22,6 +24,8 @@ public class DeviceInterfaceImpl implements IDeviceInterface {
     private ConcurrentHashMap<String, Device> DEVICE_LIST = new ConcurrentHashMap<>();
 
     private ConcurrentHashMap<String, DeviceChannel> DEVICE_CHANNEL_LIST = new ConcurrentHashMap<>();
+
+    private ConcurrentHashMap<String, Map<String, InviteResponseEvent>> INVITE_RESPONSE_EVENT_MAP = new ConcurrentHashMap<>();
 
     @Override
     public List<Device> list(int start, int limit, String q, boolean online) {
@@ -55,4 +59,24 @@ public class DeviceInterfaceImpl implements IDeviceInterface {
                 .filter(deviceChannel -> deviceChannel.getDeviceId().equals(deviceId))
                 .collect(Collectors.toList());
     }
+
+    @Override
+    public void putInviteResponseEvent(String deviceId, String channelsId, InviteResponseEvent inviteResponseEvent) {
+        INVITE_RESPONSE_EVENT_MAP
+                .putIfAbsent(deviceId,new ConcurrentHashMap<String,
+                        InviteResponseEvent>(){{put(channelsId,inviteResponseEvent);}});
+        INVITE_RESPONSE_EVENT_MAP.get(deviceId).put(channelsId,inviteResponseEvent);
+    }
+
+    @Override
+    public boolean removeInviteResponseEvent(String deviceId, String channelsId) {
+        return INVITE_RESPONSE_EVENT_MAP.get(deviceId).remove(channelsId)!=null;
+    }
+
+    @Override
+    public InviteResponseEvent getInviteResponseEvent(String deviceId, String channelsId) {
+        return INVITE_RESPONSE_EVENT_MAP.get(deviceId).get(channelsId);
+    }
+
+
 }
