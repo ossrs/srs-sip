@@ -366,4 +366,166 @@ public class SIPCommander implements ISIPCommander {
                 .timeout(Duration.ofSeconds(timeout == null ? 15 : timeout))
                 .doFinally(signalType -> sipResponseHolder.remove(catalogResponseSubscribe.getKey(), catalogResponseSubscribe.getId()));
     }
+
+    @Override
+    public boolean ptzAction(String serial, String channel, String code, String command, Integer speed) {
+        Device device = deviceInterface.getById(serial);
+        if(speed==null)
+            speed = 129;
+        int cmdCode = 0;
+        switch (command){
+            case "left":
+                cmdCode = 2;
+                break;
+            case "right":
+                cmdCode = 1;
+                break;
+            case "up":
+                cmdCode = 8;
+                break;
+            case "down":
+                cmdCode = 4;
+                break;
+            case "upleft":
+                cmdCode = 10;
+                break;
+            case "upright":
+                cmdCode = 9;
+                break;
+            case "downleft":
+                cmdCode = 6;
+                break;
+            case "downright":
+                cmdCode = 5;
+                break;
+            case "zoomin":
+                cmdCode = 16;
+                break;
+            case "zoomout":
+                cmdCode = 32;
+                break;
+            case "stop":
+                cmdCode = 0;
+                break;
+            default:
+                break;
+        }
+        String cmdStr= frontEndCmdString(cmdCode, speed, speed, speed);
+        StringBuffer ptzXml = new StringBuffer(200);
+        ptzXml.append("<?xml version=\"1.0\" ?>\r\n");
+        ptzXml.append("<Control>\r\n");
+        ptzXml.append("<CmdType>DeviceControl</CmdType>\r\n");
+        ptzXml.append("<SN>")
+                .append((int) ((Math.random() * 9 + 1) * 100000))
+                .append("</SN>\r\n");
+        ptzXml.append("<DeviceID>")
+                .append(code)
+                .append("</DeviceID>\r\n");
+        ptzXml.append("<PTZCmd>")
+                .append(cmdStr)
+                .append("</PTZCmd>\r\n");
+        ptzXml.append("<Info>\r\n");
+        ptzXml.append("</Info>\r\n");
+        ptzXml.append("</Control>\r\n");
+
+        String tm = Long.toString(System.currentTimeMillis());
+
+        CallIdHeader callIdHeader = "TCP".equals(device.getCommandTransport()) ? sipTcpProvider.getNewCallId()
+                : sipUdpProvider.getNewCallId();
+        Request request;
+
+        try {
+            SipURI sipURI = sipFactory
+                    .createAddressFactory()
+                    .createSipURI(code,
+                            device.getRemoteIP()+":"+device.getRemotePort());
+
+            ArrayList<ViaHeader> viaHeaders = new ArrayList<>();
+            ViaHeader viaHeader = sipFactory.createHeaderFactory()
+                    .createViaHeader(sipConfig.getIp(), sipConfig.getPort(), device.getCommandTransport(), null);
+            viaHeader.setRPort();
+            viaHeaders.add(viaHeader);
+
+            SipURI fromSipURI = sipFactory
+                    .createAddressFactory()
+                    .createSipURI(sipConfig.getSerial(), sipConfig.getIp()+":"+ sipConfig.getPort());
+            Address fromAddress = sipFactory
+                    .createAddressFactory()
+                    .createAddress(fromSipURI);
+            FromHeader fromHeader = sipFactory
+                    .createHeaderFactory()
+                    .createFromHeader(fromAddress, "FromPtz" + tm);
+
+            SipURI toSipURI = sipFactory
+                    .createAddressFactory()
+                    .createSipURI(code, sipConfig.getRealm());
+            Address toAddress = sipFactory
+                    .createAddressFactory()
+                    .createAddress(toSipURI);
+            ToHeader toHeader = sipFactory
+                    .createHeaderFactory()
+                    .createToHeader(toAddress, null);
+
+            MaxForwardsHeader maxForwards = sipFactory
+                    .createHeaderFactory()
+                    .createMaxForwardsHeader(70);
+
+            CSeqHeader cSeqHeader = sipFactory
+                    .createHeaderFactory()
+                    .createCSeqHeader(1L, Request.MESSAGE);
+
+            ContentTypeHeader contentTypeHeader = sipFactory
+                    .createHeaderFactory()
+                    .createContentTypeHeader("APPLICATION", "MANSCDP+xml");
+
+            Address contactAddress = sipFactory
+                    .createAddressFactory()
+                    .createAddress(sipFactory
+                            .createAddressFactory()
+                            .createSipURI(sipConfig.getSerial(), sipConfig.getIp() + ":" + sipConfig.getPort())
+                    );
+
+            request = sipFactory
+                    .createMessageFactory()
+                    .createRequest(sipURI, Request.MESSAGE, callIdHeader,
+                            cSeqHeader, fromHeader, toHeader, viaHeaders,
+                            maxForwards, contentTypeHeader, ptzXml.toString());
+            request.addHeader(sipFactory.createHeaderFactory().createContactHeader(contactAddress));
+
+
+            ClientTransaction clientTransaction = null;
+            if ("TCP".equals(device.getCommandTransport())) {
+                clientTransaction = sipTcpProvider.getNewClientTransaction(request);
+            } else if ("UDP".equals(device.getCommandTransport())) {
+                clientTransaction = sipUdpProvider.getNewClientTransaction(request);
+            }
+            if (clientTransaction != null){
+                clientTransaction.sendRequest();
+                log.info("ptz request：\n{}", request.toString());
+                return true;
+            }
+        } catch (SipException | ParseException | InvalidArgumentException e) {
+            log.error("Failed to send invite request", e);
+            return false;
+        }
+
+        return false;
+    }
+
+    private String frontEndCmdString(int cmdCode, Integer speed, Integer speed1, Integer speed2) {
+        StringBuilder builder = new StringBuilder("A50F01");
+        String strTmp;
+        strTmp = String.format("%02X", cmdCode);
+        builder.append(strTmp, 0, 2);
+        strTmp = String.format("%02X", speed);
+        builder.append(strTmp, 0, 2);
+        strTmp = String.format("%02X", speed);
+        builder.append(strTmp, 0, 2);
+        strTmp = String.format("%X", speed);
+        builder.append(strTmp, 0, 1).append("0");
+        int checkCode = (0XA5 + 0X0F + 0X01 + cmdCode + speed + speed + (speed & 0XF0)) % 0X100;
+        strTmp = String.format("%02X", checkCode);
+        builder.append(strTmp, 0, 2);
+        return builder.toString();
+    }
 }

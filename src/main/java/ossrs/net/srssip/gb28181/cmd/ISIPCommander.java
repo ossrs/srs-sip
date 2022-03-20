@@ -22,4 +22,6 @@ public interface ISIPCommander {
     void streamByeCmd(String deviceId, String channelId);
 
     Mono<List<DeviceChannel>> catalogQuery(Device device, Integer sn, Integer timeout, SipCatalogResponseSubscribe catalogResponseSubscribe);
+
+    boolean ptzAction(String serial, String channel, String code, String command, Integer speed);
 }
