@@ -75,9 +75,6 @@ user-settings:
 sa-token:
   token-session-check-login: false
 springdoc:
-  api-docs:
-    path: /api-docs
-  packages-to-scan: ossrs.net.srssip.controller
+  version: 1.0
   swagger-ui:
-    disable-swagger-default-url: true
-    path: /swagger-ui.html
+    use-root-path: true
