@@ -6,6 +6,8 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"runtime"
 
 	"github.com/magefile/mage/sh"
 )
@@ -13,11 +15,19 @@ import (
 var Default = Build
 
 func Build() error {
-	fmt.Println("building...")
-	if err := os.MkdirAll("bin", 0755); err != nil {
+	path := "bin"
+	name := "srs-sip"
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+
+	if err := os.MkdirAll(path, 0755); err != nil {
 		return err
 	}
-	if err := sh.Run("go", "build", "-o", "bin/srs-sip.exe", "main/main.go"); err != nil {
+
+	name = filepath.Join(path, name)
+
+	if err := sh.Run("go", "build", "-o", name, "main/main.go"); err != nil {
 		return err
 	}
 	fmt.Println("build done")
