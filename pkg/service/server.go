@@ -1,4 +1,4 @@
-package gbserver
+package service
 
 import (
 	"bytes"
@@ -16,13 +16,16 @@ import (
 	"github.com/ossrs/go-oryx-lib/errors"
 	"github.com/ossrs/go-oryx-lib/logger"
 	"golang.org/x/net/html/charset"
+
+	"github.com/ossrs/srs-sip/pkg/config"
+	"github.com/ossrs/srs-sip/pkg/utils"
 )
 
 const TIME_LAYOUT = "2024-01-01T00:00:00"
 
 type GB28181Server struct {
 	ctx  context.Context
-	conf *gbMainConfig
+	conf *config.MainConfig
 
 	SN uint32
 
@@ -39,7 +42,7 @@ func Run(ctx context.Context, r0 interface{}) {
 }
 
 func (s *GB28181Server) startServer(ctx context.Context, r0 interface{}) {
-	conf := r0.(*gbMainConfig)
+	conf := r0.(*config.MainConfig)
 	s.ctx = ctx
 	s.conf = conf
 
@@ -100,7 +103,7 @@ func (s *GB28181Server) OnRegister(req sip.Request, tx sip.ServerTransaction) {
 
 	resp := sip.NewResponseFromRequest("", req, http.StatusOK, "OK", "")
 	to, _ := resp.To()
-	resp.ReplaceHeaders("To", []sip.Header{&sip.ToHeader{Address: to.Address, Params: sip.NewParams().Add("tag", sip.String{Str: GenRandomNumber(9)})}})
+	resp.ReplaceHeaders("To", []sip.Header{&sip.ToHeader{Address: to.Address, Params: sip.NewParams().Add("tag", sip.String{Str: utils.GenRandomNumber(9)})}})
 	resp.RemoveHeader("Allow")
 	expires := sip.Expires(3600)
 	resp.AppendHeader(&expires)
@@ -193,11 +196,11 @@ func (s *GB28181Server) isVideoChannel(channelID string) bool {
 }
 
 func (s *GB28181Server) Invite(channelID string) error {
-	ssrc := CreateSSRC(true)
+	ssrc := utils.CreateSSRC(true)
 
 	// TODO:
 	mediaAddr := "http://" + s.conf.MediaHost + ":" + strconv.Itoa(int(s.conf.MediaApiPort))
-	mediaPort, err := ApiGbPublishRequest(s.ctx, mediaAddr, ssrc, ssrc)
+	mediaPort, err := utils.ApiGbPublishRequest(s.ctx, mediaAddr, ssrc, ssrc)
 	if err != nil {
 		return errors.Wrapf(err, "api gb publish request error")
 	}
@@ -282,7 +285,7 @@ func (s *GB28181Server) Catalog(deviceID string) error {
 }
 
 func (s *GB28181Server) CreateRequest(Method sip.RequestMethod, deviceID, sourceAddr string) (req sip.Request, err error) {
-	callId := sip.CallID(GenRandomNumber(10))
+	callId := sip.CallID(utils.GenRandomNumber(10))
 	userAgent := sip.UserAgentHeader("SRS")
 	maxForwards := sip.MaxForwards(70) //增加max-forwards为默认值 70
 	s.SN++
@@ -297,7 +300,7 @@ func (s *GB28181Server) CreateRequest(Method sip.RequestMethod, deviceID, source
 			FHost: s.conf.SipHost,
 			FPort: &port,
 		},
-		Params: sip.NewParams().Add("tag", sip.String{Str: GenRandomNumber(9)}),
+		Params: sip.NewParams().Add("tag", sip.String{Str: utils.GenRandomNumber(9)}),
 	}
 
 	//非同一域的目标地址需要使用@host

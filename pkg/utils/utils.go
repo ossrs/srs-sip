@@ -1,4 +1,4 @@
-package gbserver
+package utils
 
 import (
 	"context"
@@ -8,22 +8,13 @@ import (
 	"os"
 
 	"github.com/ossrs/go-oryx-lib/errors"
+	"github.com/ossrs/srs-sip/pkg/config"
 )
-
-type gbMainConfig struct {
-	Serial       string
-	Realm        string
-	SipNetType   string
-	SipHost      string
-	SipPort      uint
-	MediaHost    string
-	MediaApiPort uint
-}
 
 func Parse(ctx context.Context) interface{} {
 	fl := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 
-	var conf gbMainConfig
+	var conf config.MainConfig
 	fl.StringVar(&conf.Serial, "serial", "34020000002000000001", "The serial number")
 	fl.StringVar(&conf.Realm, "realm", "3402000000", "The realm")
 	fl.StringVar(&conf.SipNetType, "sip-net-type", "udp", "The SIP network type, tcp or udp")

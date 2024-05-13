@@ -1,4 +1,4 @@
-package gbserver
+package utils
 
 import (
 	"bytes"

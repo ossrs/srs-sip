@@ -6,7 +6,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/ossrs/srs-sip/gbserver"
+	"github.com/ossrs/srs-sip/pkg/service"
+	"github.com/ossrs/srs-sip/pkg/utils"
 )
 
 func WaitTerminationSignal(cancel context.CancelFunc) {
@@ -21,6 +22,6 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer WaitTerminationSignal(cancel)
 
-	conf := gbserver.Parse(ctx)
-	gbserver.Run(ctx, conf)
+	conf := utils.Parse(ctx)
+	service.Run(ctx, conf)
 }
