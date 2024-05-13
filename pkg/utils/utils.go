@@ -7,7 +7,6 @@ import (
 	"math/big"
 	"os"
 
-	"github.com/ossrs/go-oryx-lib/errors"
 	"github.com/ossrs/srs-sip/pkg/config"
 )
 
@@ -58,25 +57,4 @@ func CreateSSRC(isLive bool) string {
 	}
 	copy(ssrc[1:], GenRandomNumber(9))
 	return string(ssrc)
-}
-
-func ApiGbPublishRequest(ctx context.Context, addr, stream, ssrc string) (int, error) {
-	req := struct {
-		ClientIP string `json:"clientip"`
-		Stream   string `json:"stream"`
-		SSRC     string `json:"ssrc"`
-	}{
-		"", stream, ssrc,
-	}
-
-	res := struct {
-		Code int `json:"code"`
-		Port int `json:"port"`
-	}{}
-
-	if err := apiRequest(ctx, addr+"/gb/v1/publish/", req, &res); err != nil {
-		return 0, errors.Wrapf(err, "gb/v1/publish")
-	}
-
-	return res.Port, nil
 }

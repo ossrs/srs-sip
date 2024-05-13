@@ -68,3 +68,24 @@ func apiRequest(ctx context.Context, r string, req interface{}, res interface{})
 
 	return nil
 }
+
+func ApiGbPublishRequest(ctx context.Context, addr, stream, ssrc string) (int, error) {
+	req := struct {
+		ClientIP string `json:"clientip"`
+		Stream   string `json:"stream"`
+		SSRC     string `json:"ssrc"`
+	}{
+		"", stream, ssrc,
+	}
+
+	res := struct {
+		Code int `json:"code"`
+		Port int `json:"port"`
+	}{}
+
+	if err := apiRequest(ctx, addr+"/gb/v1/publish/", req, &res); err != nil {
+		return 0, errors.Wrapf(err, "gb/v1/publish")
+	}
+
+	return res.Port, nil
+}
