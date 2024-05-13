@@ -1,5 +1,16 @@
 ## SRS-SIP
 
+### Sequence
+```mermaid
+sequenceDiagram
+    Device ->> SRS-SIP : Register(GB28181)
+    SRS-SIP ->>  SRS : Publish Request(gb/v1/publish)
+    SRS ->> SRS-SIP : Response(with port)
+    SRS-SIP ->>  Device : Auto Invite(GB28181)
+    Device -->> SRS : Media Stream
+    SRS -->> Client : Media Stream
+```
+
 ### Building from source
 
 Pre-requisites:
