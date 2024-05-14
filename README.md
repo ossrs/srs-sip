@@ -28,5 +28,8 @@ mage
 ### Run
 
 ```
-srs-sip -media-host 127.0.0.1 -media-api-port 1985 -sip-port 5060 
+srs-sip -sip-port 5060 -media-addr 127.0.0.1:1985
 ```
+
+- `sip-port` : the SIP port, this program listen on, for device register with gb28181
+- `media-addr` : the API address for SRS, typically on port 1985, used to send HTTP requests to "gb/v1/publish"

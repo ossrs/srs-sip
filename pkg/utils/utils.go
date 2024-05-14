@@ -19,8 +19,7 @@ func Parse(ctx context.Context) interface{} {
 	fl.StringVar(&conf.SipNetType, "sip-net-type", "udp", "The SIP network type, tcp or udp")
 	fl.StringVar(&conf.SipHost, "sip-host", "0.0.0.0", "The SIP host")
 	fl.UintVar(&conf.SipPort, "sip-port", 5060, "The SIP port")
-	fl.StringVar(&conf.MediaHost, "media-host", "", "The media host")
-	fl.UintVar(&conf.MediaApiPort, "media-api-port", 1985, "The media api port")
+	fl.StringVar(&conf.MediaAddr, "media-addr", "", "The api address of media server")
 
 	fl.Usage = func() {
 		fl.PrintDefaults()
@@ -30,7 +29,7 @@ func Parse(ctx context.Context) interface{} {
 		os.Exit(0)
 	}
 
-	showHelp := conf.MediaHost == ""
+	showHelp := conf.MediaAddr == ""
 	if showHelp {
 		fl.Usage()
 		os.Exit(-1)

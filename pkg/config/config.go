@@ -1,11 +1,10 @@
 package config
 
 type MainConfig struct {
-	Serial       string
-	Realm        string
-	SipNetType   string
-	SipHost      string
-	SipPort      uint
-	MediaHost    string
-	MediaApiPort uint
+	Serial     string `ymal:"serial"`
+	Realm      string `ymal:"realm"`
+	SipNetType string `ymal:"sip-net-type"`
+	SipHost    string `ymal:"sip-host"`
+	SipPort    uint   `ymal:"sip-port"`
+	MediaAddr  string `ymal:"media-addr"`
 }

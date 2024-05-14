@@ -198,19 +198,23 @@ func (s *GB28181Server) isVideoChannel(channelID string) bool {
 func (s *GB28181Server) Invite(channelID string) error {
 	ssrc := utils.CreateSSRC(true)
 
-	// TODO:
-	mediaAddr := "http://" + s.conf.MediaHost + ":" + strconv.Itoa(int(s.conf.MediaApiPort))
+	mediaAddr := "http://" + s.conf.MediaAddr
 	mediaPort, err := utils.ApiGbPublishRequest(s.ctx, mediaAddr, ssrc, ssrc)
 	if err != nil {
 		return errors.Wrapf(err, "api gb publish request error")
 	}
 
+	mediaHost := strings.Split(s.conf.MediaAddr, ":")[0]
+	if mediaHost == "" {
+		return errors.Errorf("media host is empty")
+	}
+
 	sdpInfo := []string{
 		"v=0",
-		fmt.Sprintf("o=%s 0 0 IN IP4 %s", channelID, s.conf.MediaHost),
+		fmt.Sprintf("o=%s 0 0 IN IP4 %s", channelID, mediaHost),
 		"s=" + "Play",
 		"u=" + channelID + ":0",
-		"c=IN IP4 " + s.conf.MediaHost,
+		"c=IN IP4 " + mediaHost,
 		"t=0 0", // start time and end time
 		fmt.Sprintf("m=video %d TCP/RTP/AVP 96", mediaPort),
 		"a=recvonly",
