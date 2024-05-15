@@ -7,7 +7,7 @@ add_gopath_to_path() {
     fi
 
     # Check if $GOPATH/bin is already in ~/.bashrc
-    if grep -q "GOPATH/bin" ~/.bashrc; then
+    if grep -q "$GOPATH/bin" ~/.bashrc; then
         echo "$GOPATH/bin is already in PATH."
         return 0
     fi
@@ -26,9 +26,9 @@ then
 
   OS_IS_LINUX=$(uname -s |grep -q Linux && echo YES)
   if [ "$OS_IS_LINUX" == "YES" ]; then
-    ret=$(add_gopath_to_path)
-    if [ "$ret" == "1" ]; then
-        echo "Failed to add $GOPATH/bin to PATH."
+    add_gopath_to_path
+    if [ $? -eq 1 ]; then
+        echo "error: Failed to add $GOPATH/bin to PATH."
         exit 1
     fi
   fi
@@ -42,7 +42,7 @@ fi
 
 if ! command -v mage &> /dev/null
 then
-  echo "Ensure `go env GOPATH`/bin is in your \$PATH"
+  echo "error: Ensure `go env GOPATH`/bin is in your \$PATH"
   exit 1
 fi
 
