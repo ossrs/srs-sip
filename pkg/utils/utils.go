@@ -16,10 +16,9 @@ func Parse(ctx context.Context) interface{} {
 	var conf config.MainConfig
 	fl.StringVar(&conf.Serial, "serial", "34020000002000000001", "The serial number")
 	fl.StringVar(&conf.Realm, "realm", "3402000000", "The realm")
-	fl.StringVar(&conf.SipNetType, "sip-net-type", "udp", "The SIP network type, tcp or udp")
 	fl.StringVar(&conf.SipHost, "sip-host", "0.0.0.0", "The SIP host")
 	fl.UintVar(&conf.SipPort, "sip-port", 5060, "The SIP port")
-	fl.StringVar(&conf.MediaAddr, "media-addr", "", "The api address of media server")
+	fl.StringVar(&conf.MediaAddr, "media-addr", "", "The api address of media server. like: 127.0.0.1:1985")
 
 	fl.Usage = func() {
 		fl.PrintDefaults()

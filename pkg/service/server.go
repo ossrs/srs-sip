@@ -13,6 +13,7 @@ import (
 	"github.com/ghettovoice/gosip"
 	"github.com/ghettovoice/gosip/log"
 	"github.com/ghettovoice/gosip/sip"
+	"github.com/gorilla/mux"
 	"github.com/ossrs/go-oryx-lib/errors"
 	"github.com/ossrs/go-oryx-lib/logger"
 	"golang.org/x/net/html/charset"
@@ -38,10 +39,24 @@ func NewGB28181Server() *GB28181Server {
 
 func Run(ctx context.Context, r0 interface{}) {
 	s := NewGB28181Server()
-	s.startServer(ctx, r0)
+
+	s.startHttpServer()
+	s.startGbServer(ctx, r0)
 }
 
-func (s *GB28181Server) startServer(ctx context.Context, r0 interface{}) {
+func (s *GB28181Server) startHttpServer() {
+	router := mux.NewRouter().StrictSlash(true)
+	RegisterRoutes(router)
+
+	go func() {
+		err := http.ListenAndServe(":8080", router)
+		if err != nil {
+			panic(err)
+		}
+	}()
+}
+
+func (s *GB28181Server) startGbServer(ctx context.Context, r0 interface{}) {
 	conf := r0.(*config.MainConfig)
 	s.ctx = ctx
 	s.conf = conf
@@ -56,12 +71,16 @@ func (s *GB28181Server) startServer(ctx context.Context, r0 interface{}) {
 	s.srv.OnRequest(sip.MESSAGE, s.OnMessage)
 	s.srv.OnRequest(sip.NOTIFY, s.OnNotify)
 	s.srv.OnRequest(sip.BYE, s.OnBye)
-	err := s.srv.Listen(conf.SipNetType, addr)
-	if err != nil {
-		logger.Ef(s.ctx, "Error starting GB28181 server: %s", err.Error())
-	} else {
-		logger.T(s.ctx, "GB28181 server started")
+
+	if err := s.srv.Listen("udp", addr); err != nil {
+		logger.Ef(s.ctx, "listen udp %d error %s", conf.SipPort, err.Error())
 	}
+
+	if err := s.srv.Listen("tcp", addr); err != nil {
+		logger.Ef(s.ctx, "listen tcp %d error %s", conf.SipPort, err.Error())
+	}
+
+	logger.Tf(s.ctx, "GB28181 server started, listen on udp and tcp %d", conf.SipPort)
 }
 
 func (s *GB28181Server) OnRegister(req sip.Request, tx sip.ServerTransaction) {
@@ -94,14 +113,30 @@ func (s *GB28181Server) OnRegister(req sip.Request, tx sip.ServerTransaction) {
 	}
 
 	if isUnregister {
-		s.RemoveDevice(id)
-		logger.Tf(s.ctx, "Device %s unregistered", id)
+		RemoveDevice(id)
+		logger.Wf(s.ctx, "Device %s unregistered", id)
 		return
 	} else {
-		s.AddDevice(id, req.Source())
-	}
+		if _, ok := GetDevice(id); !ok {
+			AddDevice(id, DeviceInfo{
+				DeviceID:    id,
+				SourceAddr:  req.Source(),
+				NetworkType: req.Transport(),
+			})
+			s.respondRegister(req, http.StatusOK, "OK", tx)
+			logger.Tf(s.ctx, "%s Register success, source:%s, req: %s", id, req.Source(), req.String())
 
-	resp := sip.NewResponseFromRequest("", req, http.StatusOK, "OK", "")
+			go s.Catalog(id)
+		} else {
+			logger.Ef(s.ctx, "Device %s already registered", id)
+			// TODO: 国标没有明确定义重复ID注册的处理方式，这里暂时返回冲突
+			s.respondRegister(req, http.StatusConflict, "Conflict Device ID", tx)
+		}
+	}
+}
+
+func (s *GB28181Server) respondRegister(req sip.Request, code sip.StatusCode, reason string, tx sip.ServerTransaction) {
+	resp := sip.NewResponseFromRequest("", req, code, reason, "")
 	to, _ := resp.To()
 	resp.ReplaceHeaders("To", []sip.Header{&sip.ToHeader{Address: to.Address, Params: sip.NewParams().Add("tag", sip.String{Str: utils.GenRandomNumber(9)})}})
 	resp.RemoveHeader("Allow")
@@ -113,9 +148,6 @@ func (s *GB28181Server) OnRegister(req sip.Request, tx sip.ServerTransaction) {
 	})
 	_ = tx.Respond(resp)
 
-	logger.Tf(s.ctx, "%s Register success, source:%s, req: %s", id, req.Source(), req.String())
-
-	go s.Catalog(id)
 }
 
 func (s *GB28181Server) OnMessage(req sip.Request, tx sip.ServerTransaction) {
@@ -125,7 +157,7 @@ func (s *GB28181Server) OnMessage(req sip.Request, tx sip.ServerTransaction) {
 		return
 	}
 
-	logger.Tf(s.ctx, "Received MESSAGE: %s", req.String())
+	//logger.Tf(s.ctx, "Received MESSAGE: %s", req.String())
 
 	temp := &struct {
 		XMLName      xml.Name
@@ -149,14 +181,14 @@ func (s *GB28181Server) OnMessage(req sip.Request, tx sip.ServerTransaction) {
 	switch temp.CmdType {
 	case "Keepalive":
 		logger.T(s.ctx, "Keepalive")
-		if _, ok := s.GetDevice(temp.DeviceID); !ok {
+		if _, ok := GetDevice(temp.DeviceID); !ok {
 			// unregister device
 			tx.Respond(sip.NewResponseFromRequest("", req, http.StatusBadRequest, "", body))
 			return
 		}
 	case "Catalog":
 		logger.T(s.ctx, "Catalog")
-		s.UpdateChannels(temp.DeviceList...)
+		UpdateChannels(temp.DeviceID, temp.DeviceList...)
 		go s.AutoInvite(temp.DeviceList...)
 	case "Alarm":
 		logger.T(s.ctx, "Alarm")
@@ -225,11 +257,11 @@ func (s *GB28181Server) Invite(channelID string) error {
 		sdpInfo = append(sdpInfo, "a=setup:passive", "a=connection:new")
 	}
 
-	d, ok := s.GetDeviceByChannel(channelID)
+	d, ok := GetDeviceByChannel(channelID)
 	if !ok {
 		return errors.Errorf("device not found by %s", channelID)
 	}
-	invite, err := s.CreateRequest(sip.INVITE, channelID, d.SourceAddr)
+	invite, err := s.CreateRequest(sip.INVITE, channelID, d.SourceAddr, d.NetworkType)
 	if err != nil {
 		return errors.Wrapf(err, "create invite request error")
 	}
@@ -261,12 +293,12 @@ func (s *GB28181Server) Catalog(deviceID string) error {
 	</Query>
 	`
 
-	d, ok := s.GetDevice(deviceID)
+	d, ok := GetDevice(deviceID)
 	if !ok {
 		return errors.Errorf("device %s not found", deviceID)
 	}
 
-	request, err := s.CreateRequest(sip.MESSAGE, deviceID, d.SourceAddr)
+	request, err := s.CreateRequest(sip.MESSAGE, deviceID, d.SourceAddr, d.NetworkType)
 	if err != nil {
 		return errors.Wrapf(err, "create catalog request error")
 	}
@@ -288,7 +320,7 @@ func (s *GB28181Server) Catalog(deviceID string) error {
 
 }
 
-func (s *GB28181Server) CreateRequest(Method sip.RequestMethod, deviceID, sourceAddr string) (req sip.Request, err error) {
+func (s *GB28181Server) CreateRequest(Method sip.RequestMethod, deviceID, sourceAddr, networkType string) (req sip.Request, err error) {
 	callId := sip.CallID(utils.GenRandomNumber(10))
 	userAgent := sip.UserAgentHeader("SRS")
 	maxForwards := sip.MaxForwards(70) //增加max-forwards为默认值 70
@@ -335,7 +367,7 @@ func (s *GB28181Server) CreateRequest(Method sip.RequestMethod, deviceID, source
 		nil,
 	)
 
-	req.SetTransport(s.conf.SipNetType)
+	req.SetTransport(networkType)
 	req.SetDestination(sourceAddr)
 	return req, nil
 }
