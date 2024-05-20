@@ -4,6 +4,7 @@ go 1.17
 
 require (
 	github.com/ghettovoice/gosip v0.0.0-20231227123312-6b80e2d3e6f7
+	github.com/gorilla/mux v1.8.1
 	github.com/magefile/mage v1.15.0
 	github.com/ossrs/go-oryx-lib v0.0.9
 	golang.org/x/net v0.10.0
