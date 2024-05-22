@@ -2,8 +2,6 @@ package service
 
 import (
 	"sync"
-
-	"github.com/ossrs/go-oryx-lib/logger"
 )
 
 // <Item>
@@ -56,51 +54,91 @@ type ChannelInfo struct {
 type ChannelStatus string
 
 type DeviceInfo struct {
-	DeviceID    string        `json:"device_id"`
-	SourceAddr  string        `json:"source_addr"`
-	NetworkType string        `json:"network_type"`
-	ChannelList []ChannelInfo `json:"-"`
+	DeviceID    string   `json:"device_id"`
+	SourceAddr  string   `json:"source_addr"`
+	NetworkType string   `json:"network_type"`
+	ChannelMap  sync.Map `json:"-"`
 }
 
-var Devices sync.Map
-
-func AddDevice(id string, info DeviceInfo) {
-	Devices.Store(id, info)
+type deviceManager struct {
+	devices sync.Map
 }
 
-func RemoveDevice(id string) {
-	Devices.Delete(id)
-}
+var instance *deviceManager
+var once sync.Once
 
-func GetDevice(id string) (DeviceInfo, bool) {
-	v, ok := Devices.Load(id)
-	if !ok {
-		return DeviceInfo{}, false
-	}
-	return v.(DeviceInfo), true
-}
-
-func UpdateChannels(deviceID string, list ...ChannelInfo) {
-	for _, channel := range list {
-		if info, ok := GetDevice(deviceID); ok {
-			info.ChannelList = append(info.ChannelList, channel)
-			Devices.Store(deviceID, info)
-			logger.Tf("Update channel %s", channel.DeviceID)
+func GetDeviceManager() *deviceManager {
+	once.Do(func() {
+		instance = &deviceManager{
+			devices: sync.Map{},
 		}
-	}
+	})
+	return instance
 }
 
-func GetDeviceByChannel(channelID string) (DeviceInfo, bool) {
-	var result DeviceInfo
-	Devices.Range(func(key, value interface{}) bool {
-		info := value.(DeviceInfo)
-		for _, channel := range info.ChannelList {
-			if channel.DeviceID == channelID {
-				result = info
-				return false
-			}
+func (dm *deviceManager) AddDevice(id string, info *DeviceInfo) {
+	dm.devices.Store(id, info)
+}
+
+func (dm *deviceManager) RemoveDevice(id string) {
+	dm.devices.Delete(id)
+}
+
+func (dm *deviceManager) GetDevices() []*DeviceInfo {
+	list := make([]*DeviceInfo, 0)
+	dm.devices.Range(func(key, value interface{}) bool {
+		list = append(list, value.(*DeviceInfo))
+		return true
+	})
+	return list
+}
+
+func (dm *deviceManager) GetDevice(id string) (*DeviceInfo, bool) {
+	v, ok := dm.devices.Load(id)
+	if !ok {
+		return nil, false
+	}
+	return v.(*DeviceInfo), true
+}
+
+func (dm *deviceManager) UpdateChannels(deviceID string, list ...ChannelInfo) {
+	device, ok := dm.GetDevice(deviceID)
+	if !ok {
+		return
+	}
+
+	for _, channel := range list {
+		device.ChannelMap.Store(channel.DeviceID, channel)
+	}
+	dm.devices.Store(deviceID, device)
+}
+
+func (dm *deviceManager) GetChannels(deviceID string) []ChannelInfo {
+	device, ok := dm.GetDevice(deviceID)
+	if !ok {
+		return nil
+	}
+
+	channels := make([]ChannelInfo, 0)
+	device.ChannelMap.Range(func(key, value interface{}) bool {
+		channels = append(channels, value.(ChannelInfo))
+		return true
+	})
+	return channels
+}
+
+func (dm *deviceManager) GetDeviceByChannel(channelID string) (*DeviceInfo, bool) {
+	var device *DeviceInfo
+	found := false
+	dm.devices.Range(func(key, value interface{}) bool {
+		d := value.(*DeviceInfo)
+		_, ok := d.ChannelMap.Load(channelID)
+		if ok {
+			device = d
+			found = true
+			return false
 		}
 		return true
 	})
-	return result, result.DeviceID != ""
+	return device, found
 }

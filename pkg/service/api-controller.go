@@ -66,25 +66,15 @@ func GetVersion(w http.ResponseWriter, r *http.Request) {
 
 func ListDevices(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	list := make([]DeviceInfo, 0)
-	Devices.Range(func(key, value interface{}) bool {
-		list = append(list, value.(DeviceInfo))
-		return true
-	})
+	list := dm.GetDevices()
 	json.NewEncoder(w).Encode(list)
-
 }
 
 func GetChannels(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	vars := mux.Vars(r)
 	id := vars["id"]
-
-	channels := make([]ChannelInfo, 0)
-	if info, ok := GetDevice(id); ok {
-		channels = info.ChannelList
-	}
-
+	channels := dm.GetChannels(id)
 	json.NewEncoder(w).Encode(channels)
 }
 

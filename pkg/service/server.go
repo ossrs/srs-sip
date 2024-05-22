@@ -33,6 +33,8 @@ type GB28181Server struct {
 	srv gosip.Server
 }
 
+var dm = GetDeviceManager()
+
 func NewGB28181Server() *GB28181Server {
 	return &GB28181Server{}
 }
@@ -113,12 +115,12 @@ func (s *GB28181Server) OnRegister(req sip.Request, tx sip.ServerTransaction) {
 	}
 
 	if isUnregister {
-		RemoveDevice(id)
+		dm.RemoveDevice(id)
 		logger.Wf(s.ctx, "Device %s unregistered", id)
 		return
 	} else {
-		if _, ok := GetDevice(id); !ok {
-			AddDevice(id, DeviceInfo{
+		if _, ok := dm.GetDevice(id); !ok {
+			dm.AddDevice(id, &DeviceInfo{
 				DeviceID:    id,
 				SourceAddr:  req.Source(),
 				NetworkType: req.Transport(),
@@ -181,14 +183,14 @@ func (s *GB28181Server) OnMessage(req sip.Request, tx sip.ServerTransaction) {
 	switch temp.CmdType {
 	case "Keepalive":
 		logger.T(s.ctx, "Keepalive")
-		if _, ok := GetDevice(temp.DeviceID); !ok {
+		if _, ok := dm.GetDevice(temp.DeviceID); !ok {
 			// unregister device
 			tx.Respond(sip.NewResponseFromRequest("", req, http.StatusBadRequest, "", body))
 			return
 		}
 	case "Catalog":
 		logger.T(s.ctx, "Catalog")
-		UpdateChannels(temp.DeviceID, temp.DeviceList...)
+		dm.UpdateChannels(temp.DeviceID, temp.DeviceList...)
 		go s.AutoInvite(temp.DeviceList...)
 	case "Alarm":
 		logger.T(s.ctx, "Alarm")
@@ -257,7 +259,7 @@ func (s *GB28181Server) Invite(channelID string) error {
 		sdpInfo = append(sdpInfo, "a=setup:passive", "a=connection:new")
 	}
 
-	d, ok := GetDeviceByChannel(channelID)
+	d, ok := dm.GetDeviceByChannel(channelID)
 	if !ok {
 		return errors.Errorf("device not found by %s", channelID)
 	}
@@ -293,7 +295,7 @@ func (s *GB28181Server) Catalog(deviceID string) error {
 	</Query>
 	`
 
-	d, ok := GetDevice(deviceID)
+	d, ok := dm.GetDevice(deviceID)
 	if !ok {
 		return errors.Errorf("device %s not found", deviceID)
 	}
