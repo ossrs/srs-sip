@@ -7,24 +7,42 @@ import (
 	"github.com/gorilla/mux"
 )
 
-func RegisterRoutes(router *mux.Router) {
+func (s *GB28181Server) RegisterRoutes(router *mux.Router) {
 
-	apiV1Router := router.PathPrefix("/api/v1").Subrouter()
+	apiV1Router := router.PathPrefix("/gb/v1").Subrouter()
 
-	apiV1Router.HandleFunc("/version", GetVersion).Methods(http.MethodGet)
-	apiV1Router.HandleFunc("/devices", ListDevices).Methods(http.MethodGet)
-	apiV1Router.HandleFunc("/devices/{id}/channels", GetChannels).Methods(http.MethodGet)
+	// Add Auth middleware
+	//apiV1Router.Use(authMiddleware)
 
-	apiV1Router.HandleFunc("/channels/invite", InviteChannel).Methods(http.MethodPost)
-	apiV1Router.HandleFunc("/channels/bye", ByeChannel).Methods(http.MethodPost)
-	apiV1Router.HandleFunc("/channels/ptz", PTZControl).Methods(http.MethodPost)
+	apiV1Router.HandleFunc("/version", s.ApiGetVersion).Methods(http.MethodGet)
+	apiV1Router.HandleFunc("/devices", s.ApiListDevices).Methods(http.MethodGet)
+	apiV1Router.HandleFunc("/devices/{id}/channels", s.ApiGetChannelByDeviceId).Methods(http.MethodGet)
+	apiV1Router.HandleFunc("/channels", s.ApiGetAllChannels).Methods(http.MethodGet)
 
-	apiV1Router.HandleFunc("", GetAPIRoutes(apiV1Router)).Methods(http.MethodGet)
+	apiV1Router.HandleFunc("/invite", s.ApiInvite).Methods(http.MethodPost)
+	apiV1Router.HandleFunc("/bye", s.ApiBye).Methods(http.MethodPost)
+	apiV1Router.HandleFunc("/ptz", s.ApiPTZControl).Methods(http.MethodPost)
 
-	router.HandleFunc("/api", GetAPIVersion).Methods(http.MethodGet)
+	apiV1Router.HandleFunc("", s.GetAPIRoutes(apiV1Router)).Methods(http.MethodGet)
+
+	router.HandleFunc("/gb", s.ApiGetAPIVersion).Methods(http.MethodGet)
 }
 
-func GetAPIVersion(w http.ResponseWriter, r *http.Request) {
+func (s *GB28181Server) RespondWithJSON(w http.ResponseWriter, code int, data interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	wrapper := map[string]interface{}{
+		"code": code,
+		"data": data,
+	}
+	json.NewEncoder(w).Encode(wrapper)
+}
+
+func (s *GB28181Server) RespondWithJSONSimple(w http.ResponseWriter, jsonStr string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(jsonStr))
+}
+
+func (s *GB28181Server) ApiGetAPIVersion(w http.ResponseWriter, r *http.Request) {
 	versionInfo := map[string]string{
 		"version": "v1",
 	}
@@ -32,7 +50,7 @@ func GetAPIVersion(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(versionInfo)
 }
 
-func GetAPIRoutes(router *mux.Router) http.HandlerFunc {
+func (s *GB28181Server) GetAPIRoutes(router *mux.Router) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var routes []map[string]string
 
@@ -59,36 +77,77 @@ func GetAPIRoutes(router *mux.Router) http.HandlerFunc {
 	}
 }
 
-func GetVersion(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(`{"version":"1.0.0"}`))
+func (s *GB28181Server) ApiGetVersion(w http.ResponseWriter, r *http.Request) {
+	s.RespondWithJSONSimple(w, `{"version":"1.0.0"}`)
 }
 
-func ListDevices(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+func (s *GB28181Server) ApiListDevices(w http.ResponseWriter, r *http.Request) {
 	list := dm.GetDevices()
-	json.NewEncoder(w).Encode(list)
+	s.RespondWithJSON(w, 0, list)
 }
 
-func GetChannels(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+func (s *GB28181Server) ApiGetChannelByDeviceId(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["id"]
-	channels := dm.GetChannels(id)
-	json.NewEncoder(w).Encode(channels)
+	channels := dm.ApiGetChannelByDeviceId(id)
+	s.RespondWithJSON(w, 0, channels)
 }
 
-func InviteChannel(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(`{"result":"Not implemented"}`))
+func (s *GB28181Server) ApiGetAllChannels(w http.ResponseWriter, r *http.Request) {
+	channels := dm.GetAllVideoChannels()
+	s.RespondWithJSON(w, 0, channels)
 }
 
-func ByeChannel(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(`{"result":"Not implemented"}`))
+// request: {"device_id": "1", "channel_id": "1", "sub_stream": 0}
+// response: {"code": 0, "data": {"channel_id": "1", "url": "webrtc://"}}
+func (s *GB28181Server) ApiInvite(w http.ResponseWriter, r *http.Request) {
+	// Parse request
+	var req map[string]string
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	// Get device and channel
+	deviceID := req["device_id"]
+	channelID := req["channel_id"]
+	//subStream := req["sub_stream"]
+
+	code := 0
+	url := ""
+
+	defer func() {
+		data := map[string]string{
+			"channel_id": channelID,
+			"url":        url,
+		}
+		s.RespondWithJSON(w, code, data)
+	}()
+
+	c, ok := s.GetVideoChannelStatue(channelID)
+	if ok {
+		code = 0
+		url = "webrtc://" + s.conf.MediaAddr + "/live/" + c.Ssrc
+		return
+	}
+
+	if err := s.Invite(deviceID, channelID); err != nil {
+		code = http.StatusInternalServerError
+		return
+	}
+	c, ok = s.GetVideoChannelStatue(channelID)
+	if !ok {
+		code = http.StatusInternalServerError
+		return
+	}
+	url = "webrtc://" + s.conf.MediaAddr + "/live/" + c.Ssrc
 }
 
-func PTZControl(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(`{"result":"Not implemented"}`))
+func (s *GB28181Server) ApiBye(w http.ResponseWriter, r *http.Request) {
+	s.RespondWithJSONSimple(w, `{"msg":"Not implemented"}`)
+}
+
+func (s *GB28181Server) ApiPTZControl(w http.ResponseWriter, r *http.Request) {
+	s.RespondWithJSONSimple(w, `{"msg":"Not implemented"}`)
 }

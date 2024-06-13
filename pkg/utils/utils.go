@@ -56,3 +56,9 @@ func CreateSSRC(isLive bool) string {
 	copy(ssrc[1:], GenRandomNumber(9))
 	return string(ssrc)
 }
+
+// @see GB/T28181—2016 附录D 统一编码规则
+func IsVideoChannel(channelID string) bool {
+	deviceType := channelID[10:13]
+	return deviceType == "131" || deviceType == "132"
+}

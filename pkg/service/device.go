@@ -2,6 +2,8 @@ package service
 
 import (
 	"sync"
+
+	"github.com/ossrs/srs-sip/pkg/utils"
 )
 
 // <Item>
@@ -41,14 +43,18 @@ type ChannelInfo struct {
 	SafetyWay    int           `json:"safety_way"`
 	RegisterWay  int           `json:"register_way"`
 	Secrecy      int           `json:"secrecy"`
+	IPAddress    string        `json:"ip_address"`
 	Status       ChannelStatus `json:"status"`
 	Longitude    float64       `json:"longitude"`
 	Latitude     float64       `json:"latitude"`
 	Info         struct {
 		PTZType       int    `json:"ptz_type"`
 		Resolution    string `json:"resolution"`
-		DownloadSpeed int    `json:"download_speed"`
+		DownloadSpeed string `json:"download_speed"` // 1/2/4/8
 	} `json:"info"`
+
+	// custom fields
+	Ssrc string `json:"ssrc"`
 }
 
 type ChannelStatus string
@@ -113,7 +119,7 @@ func (dm *deviceManager) UpdateChannels(deviceID string, list ...ChannelInfo) {
 	dm.devices.Store(deviceID, device)
 }
 
-func (dm *deviceManager) GetChannels(deviceID string) []ChannelInfo {
+func (dm *deviceManager) ApiGetChannelByDeviceId(deviceID string) []ChannelInfo {
 	device, ok := dm.GetDevice(deviceID)
 	if !ok {
 		return nil
@@ -127,7 +133,23 @@ func (dm *deviceManager) GetChannels(deviceID string) []ChannelInfo {
 	return channels
 }
 
-func (dm *deviceManager) GetDeviceByChannel(channelID string) (*DeviceInfo, bool) {
+func (dm *deviceManager) GetAllVideoChannels() []ChannelInfo {
+	channels := make([]ChannelInfo, 0)
+	dm.devices.Range(func(key, value interface{}) bool {
+		device := value.(*DeviceInfo)
+		device.ChannelMap.Range(func(key, value interface{}) bool {
+			if utils.IsVideoChannel(value.(ChannelInfo).DeviceID) {
+				channels = append(channels, value.(ChannelInfo))
+				return true
+			}
+			return true
+		})
+		return true
+	})
+	return channels
+}
+
+func (dm *deviceManager) GetDeviceInfoByChannel(channelID string) (*DeviceInfo, bool) {
 	var device *DeviceInfo
 	found := false
 	dm.devices.Range(func(key, value interface{}) bool {

@@ -8,11 +8,13 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ghettovoice/gosip"
 	"github.com/ghettovoice/gosip/log"
 	"github.com/ghettovoice/gosip/sip"
+	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/ossrs/go-oryx-lib/errors"
 	"github.com/ossrs/go-oryx-lib/logger"
@@ -24,11 +26,22 @@ import (
 
 const TIME_LAYOUT = "2024-01-01T00:00:00"
 
+type VideoChannelStatus struct {
+	ID        string
+	ParentID  string
+	MediaHost string
+	MediaPort int
+	Ssrc      string
+	Status    string
+}
+
 type GB28181Server struct {
 	ctx  context.Context
 	conf *config.MainConfig
 
 	SN uint32
+
+	channelsStatue sync.Map
 
 	srv gosip.Server
 }
@@ -48,10 +61,14 @@ func Run(ctx context.Context, r0 interface{}) {
 
 func (s *GB28181Server) startHttpServer() {
 	router := mux.NewRouter().StrictSlash(true)
-	RegisterRoutes(router)
+	s.RegisterRoutes(router)
+
+	headers := handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Authorization"})
+	methods := handlers.AllowedMethods([]string{"GET", "POST", "PUT", "DELETE", "OPTIONS"})
+	origins := handlers.AllowedOrigins([]string{"*"})
 
 	go func() {
-		err := http.ListenAndServe(":8080", router)
+		err := http.ListenAndServe(":2020", handlers.CORS(headers, methods, origins)(router))
 		if err != nil {
 			panic(err)
 		}
@@ -119,7 +136,7 @@ func (s *GB28181Server) OnRegister(req sip.Request, tx sip.ServerTransaction) {
 		logger.Wf(s.ctx, "Device %s unregistered", id)
 		return
 	} else {
-		if _, ok := dm.GetDevice(id); !ok {
+		if d, ok := dm.GetDevice(id); !ok {
 			dm.AddDevice(id, &DeviceInfo{
 				DeviceID:    id,
 				SourceAddr:  req.Source(),
@@ -130,9 +147,14 @@ func (s *GB28181Server) OnRegister(req sip.Request, tx sip.ServerTransaction) {
 
 			go s.Catalog(id)
 		} else {
-			logger.Ef(s.ctx, "Device %s already registered", id)
-			// TODO: 国标没有明确定义重复ID注册的处理方式，这里暂时返回冲突
-			s.respondRegister(req, http.StatusConflict, "Conflict Device ID", tx)
+			if d.SourceAddr != req.Source() {
+				logger.Ef(s.ctx, "Device %s[%s] already registered, %s is NOT allowed.", id, d.SourceAddr, req.Source())
+				// TODO: 国标没有明确定义重复ID注册的处理方式，这里暂时返回冲突
+				s.respondRegister(req, http.StatusConflict, "Conflict Device ID", tx)
+			} else {
+				// TODO: 刷新设备注册信息
+				s.respondRegister(req, http.StatusOK, "OK", tx)
+			}
 		}
 	}
 }
@@ -177,7 +199,7 @@ func (s *GB28181Server) OnMessage(req sip.Request, tx sip.ServerTransaction) {
 	decoder := xml.NewDecoder(bytes.NewReader([]byte(req.Body())))
 	decoder.CharsetReader = charset.NewReaderLabel
 	if err := decoder.Decode(temp); err != nil {
-		logger.Ef(s.ctx, "decode message error: %s", err.Error())
+		logger.Ef(s.ctx, "decode message error: %s\n message:%s", err.Error(), req.Body())
 	}
 	var body string
 	switch temp.CmdType {
@@ -191,7 +213,7 @@ func (s *GB28181Server) OnMessage(req sip.Request, tx sip.ServerTransaction) {
 	case "Catalog":
 		logger.T(s.ctx, "Catalog")
 		dm.UpdateChannels(temp.DeviceID, temp.DeviceList...)
-		go s.AutoInvite(temp.DeviceList...)
+		//go s.AutoInvite(temp.DeviceID, temp.DeviceList...)
 	case "Alarm":
 		logger.T(s.ctx, "Alarm")
 	default:
@@ -213,23 +235,17 @@ func (s *GB28181Server) OnBye(req sip.Request, tx sip.ServerTransaction) {
 	tx.Respond(sip.NewResponseFromRequest("", req, http.StatusOK, "OK", ""))
 }
 
-func (s *GB28181Server) AutoInvite(list ...ChannelInfo) {
+func (s *GB28181Server) AutoInvite(deviceID string, list ...ChannelInfo) {
 	for _, c := range list {
-		if c.Status == "ON" && s.isVideoChannel(c.DeviceID) {
-			if err := s.Invite(c.DeviceID); err != nil {
+		if c.Status == "ON" && utils.IsVideoChannel(c.DeviceID) {
+			if err := s.Invite(deviceID, c.DeviceID); err != nil {
 				logger.Ef(s.ctx, "invite error: %s", err.Error())
 			}
 		}
 	}
 }
 
-// @see GB/T28181—2016 附录D 统一编码规则
-func (s *GB28181Server) isVideoChannel(channelID string) bool {
-	deviceType := channelID[10:13]
-	return deviceType == "131" || deviceType == "132"
-}
-
-func (s *GB28181Server) Invite(channelID string) error {
+func (s *GB28181Server) Invite(deviceID, channelID string) error {
 	ssrc := utils.CreateSSRC(true)
 
 	mediaAddr := "http://" + s.conf.MediaAddr
@@ -259,7 +275,8 @@ func (s *GB28181Server) Invite(channelID string) error {
 		sdpInfo = append(sdpInfo, "a=setup:passive", "a=connection:new")
 	}
 
-	d, ok := dm.GetDeviceByChannel(channelID)
+	// TODO: 需要考虑不同设备，通道ID相同的情况
+	d, ok := dm.GetDeviceInfoByChannel(channelID)
 	if !ok {
 		return errors.Errorf("device not found by %s", channelID)
 	}
@@ -283,6 +300,15 @@ func (s *GB28181Server) Invite(channelID string) error {
 	logger.If(s.ctx, "Invite response: %s", inviteRes.String())
 
 	s.srv.Send(sip.NewAckRequest("", invite, inviteRes, "", nil))
+
+	s.AddVideoChannelStatue(channelID, VideoChannelStatus{
+		ID:        channelID,
+		ParentID:  deviceID,
+		MediaHost: mediaHost,
+		MediaPort: mediaPort,
+		Ssrc:      ssrc,
+		Status:    "ON",
+	})
 
 	return nil
 }
@@ -372,4 +398,20 @@ func (s *GB28181Server) CreateRequest(Method sip.RequestMethod, deviceID, source
 	req.SetTransport(networkType)
 	req.SetDestination(sourceAddr)
 	return req, nil
+}
+
+func (s *GB28181Server) AddVideoChannelStatue(channelID string, status VideoChannelStatus) {
+	s.channelsStatue.Store(channelID, status)
+}
+
+func (s *GB28181Server) GetVideoChannelStatue(channelID string) (VideoChannelStatus, bool) {
+	v, ok := s.channelsStatue.Load(channelID)
+	if !ok {
+		return VideoChannelStatus{}, false
+	}
+	return v.(VideoChannelStatus), true
+}
+
+func (s *GB28181Server) RemoveVideoChannelStatue(channelID string) {
+	s.channelsStatue.Delete(channelID)
 }
