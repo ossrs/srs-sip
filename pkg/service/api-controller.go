@@ -7,14 +7,13 @@ import (
 	"github.com/gorilla/mux"
 )
 
-func (s *GB28181Server) RegisterRoutes(router *mux.Router) {
+func (s *UAS) RegisterRoutes(router *mux.Router) {
 
 	apiV1Router := router.PathPrefix("/gb/v1").Subrouter()
 
 	// Add Auth middleware
 	//apiV1Router.Use(authMiddleware)
 
-	apiV1Router.HandleFunc("/version", s.ApiGetVersion).Methods(http.MethodGet)
 	apiV1Router.HandleFunc("/devices", s.ApiListDevices).Methods(http.MethodGet)
 	apiV1Router.HandleFunc("/devices/{id}/channels", s.ApiGetChannelByDeviceId).Methods(http.MethodGet)
 	apiV1Router.HandleFunc("/channels", s.ApiGetAllChannels).Methods(http.MethodGet)
@@ -28,7 +27,7 @@ func (s *GB28181Server) RegisterRoutes(router *mux.Router) {
 	router.HandleFunc("/gb", s.ApiGetAPIVersion).Methods(http.MethodGet)
 }
 
-func (s *GB28181Server) RespondWithJSON(w http.ResponseWriter, code int, data interface{}) {
+func (s *UAS) RespondWithJSON(w http.ResponseWriter, code int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	wrapper := map[string]interface{}{
 		"code": code,
@@ -37,20 +36,12 @@ func (s *GB28181Server) RespondWithJSON(w http.ResponseWriter, code int, data in
 	json.NewEncoder(w).Encode(wrapper)
 }
 
-func (s *GB28181Server) RespondWithJSONSimple(w http.ResponseWriter, jsonStr string) {
+func (s *UAS) RespondWithJSONSimple(w http.ResponseWriter, jsonStr string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(jsonStr))
 }
 
-func (s *GB28181Server) ApiGetAPIVersion(w http.ResponseWriter, r *http.Request) {
-	versionInfo := map[string]string{
-		"version": "v1",
-	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(versionInfo)
-}
-
-func (s *GB28181Server) GetAPIRoutes(router *mux.Router) http.HandlerFunc {
+func (s *UAS) GetAPIRoutes(router *mux.Router) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var routes []map[string]string
 
@@ -72,35 +63,34 @@ func (s *GB28181Server) GetAPIRoutes(router *mux.Router) http.HandlerFunc {
 			return nil
 		})
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(routes)
+		s.RespondWithJSON(w, 0, routes)
 	}
 }
 
-func (s *GB28181Server) ApiGetVersion(w http.ResponseWriter, r *http.Request) {
-	s.RespondWithJSONSimple(w, `{"version":"1.0.0"}`)
+func (s *UAS) ApiGetAPIVersion(w http.ResponseWriter, r *http.Request) {
+	s.RespondWithJSONSimple(w, `{"version": "v1"}`)
 }
 
-func (s *GB28181Server) ApiListDevices(w http.ResponseWriter, r *http.Request) {
+func (s *UAS) ApiListDevices(w http.ResponseWriter, r *http.Request) {
 	list := dm.GetDevices()
 	s.RespondWithJSON(w, 0, list)
 }
 
-func (s *GB28181Server) ApiGetChannelByDeviceId(w http.ResponseWriter, r *http.Request) {
+func (s *UAS) ApiGetChannelByDeviceId(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["id"]
 	channels := dm.ApiGetChannelByDeviceId(id)
 	s.RespondWithJSON(w, 0, channels)
 }
 
-func (s *GB28181Server) ApiGetAllChannels(w http.ResponseWriter, r *http.Request) {
+func (s *UAS) ApiGetAllChannels(w http.ResponseWriter, r *http.Request) {
 	channels := dm.GetAllVideoChannels()
 	s.RespondWithJSON(w, 0, channels)
 }
 
 // request: {"device_id": "1", "channel_id": "1", "sub_stream": 0}
 // response: {"code": 0, "data": {"channel_id": "1", "url": "webrtc://"}}
-func (s *GB28181Server) ApiInvite(w http.ResponseWriter, r *http.Request) {
+func (s *UAS) ApiInvite(w http.ResponseWriter, r *http.Request) {
 	// Parse request
 	var req map[string]string
 	err := json.NewDecoder(r.Body).Decode(&req)
@@ -144,10 +134,10 @@ func (s *GB28181Server) ApiInvite(w http.ResponseWriter, r *http.Request) {
 	url = "webrtc://" + s.conf.MediaAddr + "/live/" + c.Ssrc
 }
 
-func (s *GB28181Server) ApiBye(w http.ResponseWriter, r *http.Request) {
+func (s *UAS) ApiBye(w http.ResponseWriter, r *http.Request) {
 	s.RespondWithJSONSimple(w, `{"msg":"Not implemented"}`)
 }
 
-func (s *GB28181Server) ApiPTZControl(w http.ResponseWriter, r *http.Request) {
+func (s *UAS) ApiPTZControl(w http.ResponseWriter, r *http.Request) {
 	s.RespondWithJSONSimple(w, `{"msg":"Not implemented"}`)
 }
