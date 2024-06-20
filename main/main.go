@@ -7,6 +7,7 @@ import (
 	"syscall"
 
 	"github.com/ossrs/go-oryx-lib/logger"
+	"github.com/ossrs/srs-sip/pkg/api"
 	"github.com/ossrs/srs-sip/pkg/service"
 	"github.com/ossrs/srs-sip/pkg/utils"
 )
@@ -34,5 +35,14 @@ func main() {
 		return
 	}
 
+	httpSvr, err := api.NewHttpServer(conf, sipSvr)
+	if err != nil {
+		logger.Ef("create http service failed. err is %v", err.Error())
+		return
+	}
+	httpSvr.Start()
+
 	WaitTerminationSignal(cancel)
+
+	sipSvr.Stop()
 }
