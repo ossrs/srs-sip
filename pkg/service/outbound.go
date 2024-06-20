@@ -7,6 +7,7 @@ import (
 	"github.com/emiago/sipgo/sip"
 	"github.com/ossrs/go-oryx-lib/errors"
 	"github.com/ossrs/go-oryx-lib/logger"
+	"github.com/ossrs/srs-sip/pkg/service/stack"
 	"github.com/ossrs/srs-sip/pkg/utils"
 )
 
@@ -52,15 +53,18 @@ func (s *UAS) Invite(deviceID, channelID string) error {
 	}
 
 	// TODO: 需要考虑不同设备，通道ID相同的情况
-	d, ok := dm.GetDeviceInfoByChannel(channelID)
+	d, ok := DM.GetDeviceInfoByChannel(channelID)
 	if !ok {
 		return errors.Errorf("device not found by %s", channelID)
 	}
 
-	req, err := newInviteRequest([]byte(strings.Join(sdpInfo, "\r\n")), sipOutboundConfig{
-		to:        d.SourceAddr,
-		from:      s.conf.Serial,
-		transport: d.NetworkType,
+	subject := fmt.Sprintf("%s:%s,%s:0", channelID, ssrc, s.conf.Serial)
+
+	req, err := stack.NewInviteRequest([]byte(strings.Join(sdpInfo, "\r\n")), subject, stack.OutboundConfig{
+		Via:       d.SourceAddr,
+		To:        d.DeviceID,
+		From:      s.conf.Serial,
+		Transport: d.NetworkType,
 	})
 	if err != nil {
 		return errors.Wrapf(err, "build invite request error")
@@ -90,6 +94,10 @@ func (s *UAS) Invite(deviceID, channelID string) error {
 	return nil
 }
 
+func (s *UAS) Bye() error {
+	return nil
+}
+
 func (s *UAS) Catalog(deviceID string) error {
 	var CatalogXML = `<?xml version="1.0"?><Query>
 	<CmdType>Catalog</CmdType>
@@ -98,17 +106,18 @@ func (s *UAS) Catalog(deviceID string) error {
 	</Query>
 	`
 
-	d, ok := dm.GetDevice(deviceID)
+	d, ok := DM.GetDevice(deviceID)
 	if !ok {
 		return errors.Errorf("device %s not found", deviceID)
 	}
 
 	body := fmt.Sprintf(CatalogXML, s.getSN(), deviceID)
 
-	req, err := newCatelogRequest([]byte(body), sipOutboundConfig{
-		to:        d.SourceAddr,
-		from:      s.conf.Serial,
-		transport: d.NetworkType,
+	req, err := stack.NewCatelogRequest([]byte(body), stack.OutboundConfig{
+		Via:       d.SourceAddr,
+		To:        d.DeviceID,
+		From:      s.conf.Serial,
+		Transport: d.NetworkType,
 	})
 	if err != nil {
 		return errors.Wrapf(err, "build catalog request error")

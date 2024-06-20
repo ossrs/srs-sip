@@ -5,13 +5,14 @@ import (
 	"encoding/xml"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/emiago/sipgo/sip"
 	"github.com/ossrs/go-oryx-lib/logger"
-	"github.com/ossrs/srs-sip/pkg/utils"
+	"github.com/ossrs/srs-sip/pkg/service/stack"
 	"golang.org/x/net/html/charset"
 )
+
+const GB28181_ID_LENGTH = 20
 
 type VideoChannelStatus struct {
 	ID        string
@@ -24,7 +25,7 @@ type VideoChannelStatus struct {
 
 func (s *UAS) onRegister(req *sip.Request, tx sip.ServerTransaction) {
 	id := req.From().Address.User
-	if len(id) != 20 {
+	if len(id) != GB28181_ID_LENGTH {
 		logger.E(s.ctx, "invalid device ID")
 		return
 	}
@@ -46,12 +47,12 @@ func (s *UAS) onRegister(req *sip.Request, tx sip.ServerTransaction) {
 	}
 
 	if isUnregister {
-		dm.RemoveDevice(id)
+		DM.RemoveDevice(id)
 		logger.Wf(s.ctx, "Device %s unregistered", id)
 		return
 	} else {
-		if d, ok := dm.GetDevice(id); !ok {
-			dm.AddDevice(id, &DeviceInfo{
+		if d, ok := DM.GetDevice(id); !ok {
+			DM.AddDevice(id, &DeviceInfo{
 				DeviceID:    id,
 				SourceAddr:  req.Source(),
 				NetworkType: req.Transport(),
@@ -66,7 +67,7 @@ func (s *UAS) onRegister(req *sip.Request, tx sip.ServerTransaction) {
 				// TODO: 国标没有明确定义重复ID注册的处理方式，这里暂时返回冲突
 				s.respondRegister(req, http.StatusConflict, "Conflict Device ID", tx)
 			} else {
-				// TODO: 刷新设备注册信息
+				// TODO: 刷新DM里面的设备信息
 				s.respondRegister(req, http.StatusOK, "OK", tx)
 			}
 		}
@@ -74,21 +75,8 @@ func (s *UAS) onRegister(req *sip.Request, tx sip.ServerTransaction) {
 }
 
 func (s *UAS) respondRegister(req *sip.Request, code sip.StatusCode, reason string, tx sip.ServerTransaction) {
-	resp := sip.NewResponseFromRequest(req, code, reason, nil)
-	to := resp.To()
-	//var headParam sip.HeaderParams
-	headParam := make(sip.HeaderParams)
-	headParam.Add("tag", utils.GenRandomNumber(9))
-	newTo := sip.ToHeader{
-		Address: to.Address,
-		Params:  headParam,
-	}
-	resp.ReplaceHeader(&newTo)
-	resp.RemoveHeader("Allow")
-	expires := sip.ExpiresHeader(3600)
-	resp.AppendHeader(&expires)
-	resp.AppendHeader(sip.NewHeader("Date", time.Now().Format(TIME_LAYOUT)))
-	_ = tx.Respond(resp)
+	res := stack.NewRegisterResponse(req, code, reason)
+	_ = tx.Respond(res)
 
 }
 
@@ -123,14 +111,14 @@ func (s *UAS) onMessage(req *sip.Request, tx sip.ServerTransaction) {
 	switch temp.CmdType {
 	case "Keepalive":
 		logger.T(s.ctx, "Keepalive")
-		if _, ok := dm.GetDevice(temp.DeviceID); !ok {
+		if _, ok := DM.GetDevice(temp.DeviceID); !ok {
 			// unregister device
 			tx.Respond(sip.NewResponseFromRequest(req, http.StatusBadRequest, "", nil))
 			return
 		}
 	case "Catalog":
 		logger.T(s.ctx, "Catalog")
-		dm.UpdateChannels(temp.DeviceID, temp.DeviceList...)
+		DM.UpdateChannels(temp.DeviceID, temp.DeviceList...)
 		//go s.AutoInvite(temp.DeviceID, temp.DeviceList...)
 	case "Alarm":
 		logger.T(s.ctx, "Alarm")

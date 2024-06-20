@@ -1,15 +1,29 @@
-package service
+package api
 
 import (
 	"net/http"
 
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
+	"github.com/ossrs/srs-sip/pkg/config"
+	"github.com/ossrs/srs-sip/pkg/service"
 )
 
-func (s *UAS) startHttpServer() {
+type HttpServer struct {
+	conf   *config.MainConfig
+	sipSvr *service.Service
+}
+
+func NewHttpServer(r0 interface{}, svr *service.Service) (*HttpServer, error) {
+	return &HttpServer{
+		conf:   r0.(*config.MainConfig),
+		sipSvr: svr,
+	}, nil
+}
+
+func (h *HttpServer) Start() {
 	router := mux.NewRouter().StrictSlash(true)
-	s.RegisterRoutes(router)
+	h.RegisterRoutes(router)
 
 	headers := handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Authorization"})
 	methods := handlers.AllowedMethods([]string{"GET", "POST", "PUT", "DELETE", "OPTIONS"})

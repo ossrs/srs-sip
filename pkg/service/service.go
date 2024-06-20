@@ -13,8 +13,8 @@ import (
 type Service struct {
 	ctx  context.Context
 	conf *config.MainConfig
-	uac  *UAC
-	uas  *UAS
+	Uac  *UAC
+	Uas  *UAS
 }
 
 func NewService(ctx context.Context, r0 interface{}) (*Service, error) {
@@ -22,8 +22,8 @@ func NewService(ctx context.Context, r0 interface{}) (*Service, error) {
 		ctx:  ctx,
 		conf: r0.(*config.MainConfig),
 	}
-	s.uac = NewUac()
-	s.uas = NewUas()
+	s.Uac = NewUac()
+	s.Uas = NewUas()
 	return s, nil
 }
 
@@ -35,10 +35,10 @@ func (s *Service) Start() error {
 		return err
 	}
 
-	// if err := s.uac.Start(ua); err != nil {
-	// 	return err
-	// }
-	if err := s.uas.Start(ua, s.conf); err != nil {
+	if err := s.Uac.Start(ua, s.conf); err != nil {
+		return err
+	}
+	if err := s.Uas.Start(ua, s.conf); err != nil {
 		return err
 	}
 
@@ -61,6 +61,6 @@ func (s *Service) Start() error {
 }
 
 func (s *Service) Stop() {
-	s.uac.Stop()
-	s.uas.Stop()
+	s.Uac.Stop()
+	s.Uas.Stop()
 }

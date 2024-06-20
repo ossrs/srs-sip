@@ -7,6 +7,7 @@ import (
 	"github.com/emiago/sipgo"
 	"github.com/emiago/sipgo/sip"
 	"github.com/ossrs/go-oryx-lib/logger"
+	"github.com/ossrs/srs-sip/pkg/config"
 )
 
 const (
@@ -14,25 +15,26 @@ const (
 )
 
 type UAC struct {
-	sipCli *sipgo.Client
-	sipSvr *sipgo.Server
-	ctx    context.Context
+	*Cascade
+
+	SN uint32
 }
 
 func NewUac() *UAC {
-	c := &UAC{}
+	c := &UAC{
+		Cascade: &Cascade{},
+	}
 	return c
 }
 
-func (c *UAC) Start(agent *sipgo.UserAgent) error {
+func (c *UAC) Start(agent *sipgo.UserAgent, r0 interface{}) error {
 	var err error
 
 	c.ctx = context.Background()
+	c.conf = r0.(*config.MainConfig)
 
 	if agent == nil {
-		ua, err := sipgo.NewUA(
-			sipgo.WithUserAgent(UserAgent),
-		)
+		ua, err := sipgo.NewUA(sipgo.WithUserAgent(UserAgent))
 		if err != nil {
 			return err
 		}
@@ -70,8 +72,8 @@ func (c *UAC) doRegister() error {
 	src := "172.18.5.44:5080"
 	recipient := sip.Uri{
 		User: username,
-		Host: "172.18.5.44",
-		Port: 5070,
+		Host: c.conf.SipHost,
+		Port: c.conf.SipPort,
 	}
 	req := sip.NewRequest(sip.REGISTER, recipient)
 	sipgo.ClientRequestBuild(c.sipCli, req)

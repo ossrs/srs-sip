@@ -13,32 +13,26 @@ import (
 	"github.com/ossrs/srs-sip/pkg/config"
 )
 
-const TIME_LAYOUT = "2024-01-01T00:00:00"
-
 type UAS struct {
-	sipCli *sipgo.Client
-	sipSvr *sipgo.Server
-	ctx    context.Context
-	conf   *config.MainConfig
+	*Cascade
 
-	SN uint32
-
+	SN             uint32
 	channelsStatue sync.Map
 
 	sipConnUDP *net.UDPConn
 	sipConnTCP *net.TCPListener
 }
 
-var dm = GetDeviceManager()
+var DM = GetDeviceManager()
 
 func NewUas() *UAS {
-	return &UAS{}
+	return &UAS{
+		Cascade: &Cascade{},
+	}
 }
 
 func (s *UAS) Start(agent *sipgo.UserAgent, r0 interface{}) error {
 	ctx := context.Background()
-	// TODO: move to service
-	s.startHttpServer()
 	s.startSipServer(agent, ctx, r0)
 	return nil
 }
@@ -53,12 +47,8 @@ func (s *UAS) startSipServer(agent *sipgo.UserAgent, ctx context.Context, r0 int
 	s.ctx = ctx
 	s.conf = conf
 
-	// addr := conf.SipHost + ":" + strconv.Itoa(int(conf.SipPort))
-
 	if agent == nil {
-		ua, err := sipgo.NewUA(
-			sipgo.WithUserAgent(UserAgent),
-		)
+		ua, err := sipgo.NewUA(sipgo.WithUserAgent(UserAgent))
 		if err != nil {
 			return err
 		}
@@ -87,7 +77,6 @@ func (s *UAS) startSipServer(agent *sipgo.UserAgent, ctx context.Context, r0 int
 	if err := s.startTCP(); err != nil {
 		return err
 	}
-	logger.Tf(s.ctx, "GB28181 server started, listen on udp and tcp %d", conf.SipPort)
 
 	return nil
 }
