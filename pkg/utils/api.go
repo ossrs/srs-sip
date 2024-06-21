@@ -69,13 +69,12 @@ func apiRequest(ctx context.Context, r string, req interface{}, res interface{})
 	return nil
 }
 
-func ApiGbPublishRequest(ctx context.Context, addr, stream, ssrc string) (int, error) {
+func ApiGbPublishRequest(ctx context.Context, addr, id, ssrc string) (int, error) {
 	req := struct {
-		ClientIP string `json:"clientip"`
-		Stream   string `json:"stream"`
-		SSRC     string `json:"ssrc"`
+		Id   string `json:"id"`
+		SSRC string `json:"ssrc"`
 	}{
-		"", stream, ssrc,
+		id, ssrc,
 	}
 
 	res := struct {
