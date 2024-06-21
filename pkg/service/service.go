@@ -43,7 +43,7 @@ func (s *Service) Start() error {
 	}
 
 	go func() {
-		httpPort := "8080"
+		httpPort := "6666"
 		server := &http.Server{
 			Addr:              ":" + httpPort,
 			Handler:           http.FileServer(http.Dir("../web/html")),

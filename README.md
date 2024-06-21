@@ -25,6 +25,11 @@ cd srs-sip
 mage
 ```
 
+If you are on a Unix-like system, you can also run the following command.
+```
+make
+```
+
 ### Run
 
 ```
