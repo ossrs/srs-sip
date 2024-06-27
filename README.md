@@ -18,9 +18,9 @@ sequenceDiagram
 ```
 
 1. 通过SRS-SIP提供的API接口`/srs-sip/v1/invite`，Player主动发起播放请求，携带设备的通道ID
-2. SRS-SIP向SRS发起推流请求，携带SSRC和ID，SSRC是设备推流时RTP里的字段，ID用于Player拉流。
-3. SRS响应推流请求，并返回收流端口。目前仅支持TCP单端口模式，在配置文件`stream_caster.listen`中配置
-4. SRS-SIP通过GB28181协议向设备发起`Invite`请求，携带SRS的收流端口及上面的SSRC
+2. SRS-SIP向SRS发起推流请求，携带SSRC和ID，SSRC是设备推流时RTP里的字段
+3. SRS响应推流请求，并返回收流端口。目前SRS仅支持TCP单端口模式，在配置文件`stream_caster.listen`中配置
+4. SRS-SIP通过GB28181协议向设备发起`Invite`请求，携带SRS的收流端口及SSRC
 5. 设备响应成功
 6. SRS-SIP响应成功，携带URL，用于播放
 7. Player通过返回的URL进行拉流播放

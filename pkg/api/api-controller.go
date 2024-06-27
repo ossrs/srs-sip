@@ -10,7 +10,7 @@ import (
 
 func (h *HttpServer) RegisterRoutes(router *mux.Router) {
 
-	apiV1Router := router.PathPrefix("/gb/v1").Subrouter()
+	apiV1Router := router.PathPrefix("/srs-sip/v1").Subrouter()
 
 	// Add Auth middleware
 	//apiV1Router.Use(authMiddleware)
@@ -25,7 +25,7 @@ func (h *HttpServer) RegisterRoutes(router *mux.Router) {
 
 	apiV1Router.HandleFunc("", h.GetAPIRoutes(apiV1Router)).Methods(http.MethodGet)
 
-	router.HandleFunc("/gb", h.ApiGetAPIVersion).Methods(http.MethodGet)
+	router.HandleFunc("/srs-sip", h.ApiGetAPIVersion).Methods(http.MethodGet)
 }
 
 func (h *HttpServer) RespondWithJSON(w http.ResponseWriter, code int, data interface{}) {
