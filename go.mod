@@ -11,11 +11,9 @@ require (
 	github.com/magefile/mage v1.15.0
 	github.com/ossrs/go-oryx-lib v0.0.9
 	github.com/ossrs/srs-bench v0.0.0-20230906232735-aa029b492d0f
-	github.com/pion/sdp/v2 v2.4.0
+	github.com/rs/zerolog v1.32.0
 	golang.org/x/net v0.10.0
 )
-
-replace github.com/emiago/sipgo => ../sipgo
 
 require (
 	github.com/felixge/httpsnoop v1.0.3 // indirect
@@ -32,7 +30,6 @@ require (
 	github.com/pion/randutil v0.1.0 // indirect
 	github.com/pion/rtp v1.7.13 // indirect
 	github.com/pion/webrtc/v3 v3.2.9 // indirect
-	github.com/rs/zerolog v1.32.0 // indirect
 	github.com/satori/go.uuid v1.2.1-0.20181028125025-b2ce2384e17b // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/tevino/abool v0.0.0-20170917061928-9b9efcf221b5 // indirect

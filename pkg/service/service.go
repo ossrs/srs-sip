@@ -8,6 +8,7 @@ import (
 	"github.com/emiago/sipgo"
 	"github.com/ossrs/go-oryx-lib/logger"
 	"github.com/ossrs/srs-sip/pkg/config"
+	"github.com/rs/zerolog"
 )
 
 type Service struct {
@@ -28,6 +29,8 @@ func NewService(ctx context.Context, r0 interface{}) (*Service, error) {
 }
 
 func (s *Service) Start() error {
+	zerolog.SetGlobalLevel(zerolog.Disabled)
+
 	ua, err := sipgo.NewUA(
 		sipgo.WithUserAgent(UserAgent),
 	)
@@ -43,7 +46,7 @@ func (s *Service) Start() error {
 	}
 
 	go func() {
-		httpPort := "6666"
+		httpPort := s.conf.HttpServerPort
 		server := &http.Server{
 			Addr:              ":" + httpPort,
 			Handler:           http.FileServer(http.Dir("../web/html")),
@@ -52,8 +55,9 @@ func (s *Service) Start() error {
 			IdleTimeout:       30 * time.Second,
 			ReadHeaderTimeout: 5 * time.Second,
 		}
+		logger.Tf(s.ctx, "http server listen on %s", httpPort)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logger.Ef("listen on %s failed", httpPort)
+			logger.Ef(s.ctx, "listen on %s failed", httpPort)
 		}
 	}()
 
