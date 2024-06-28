@@ -6,5 +6,5 @@ type MainConfig struct {
 	SipHost        string `ymal:"sip-host"`
 	SipPort        int    `ymal:"sip-port"`
 	MediaAddr      string `ymal:"media-addr"`
-	HttpServerPort string `ymal:"http-server-port"`
+	HttpServerPort int    `ymal:"http-server-port"`
 }

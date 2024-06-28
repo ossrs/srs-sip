@@ -19,7 +19,7 @@ func Parse(ctx context.Context) interface{} {
 	fl.StringVar(&conf.SipHost, "sip-host", "0.0.0.0", "The SIP host")
 	fl.IntVar(&conf.SipPort, "sip-port", 5060, "The SIP port")
 	fl.StringVar(&conf.MediaAddr, "media-addr", "127.0.0.1:1985", "The api address of media server. like: 127.0.0.1:1985")
-	fl.StringVar(&conf.HttpServerPort, "http-server-port", "8888", "The port of http server")
+	fl.IntVar(&conf.HttpServerPort, "http-server-port", 8888, "The port of http server")
 
 	fl.Usage = func() {
 		fl.PrintDefaults()

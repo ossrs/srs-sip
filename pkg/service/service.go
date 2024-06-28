@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/emiago/sipgo"
@@ -46,7 +47,7 @@ func (s *Service) Start() error {
 	}
 
 	go func() {
-		httpPort := s.conf.HttpServerPort
+		httpPort := strconv.Itoa(s.conf.HttpServerPort)
 		server := &http.Server{
 			Addr:              ":" + httpPort,
 			Handler:           http.FileServer(http.Dir("../web/html")),
