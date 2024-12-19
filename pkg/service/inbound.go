@@ -44,7 +44,7 @@ func (s *UAS) onRegister(req *sip.Request, tx sip.ServerTransaction) {
 	// Validate Authorization
 	authInfo := ParseAuthorization(authHeader[0].Value())
 	if !ValidateAuth(authInfo, s.conf.Password) {
-		logger.E(s.ctx, "auth failed")
+		logger.Ef(s.ctx, "%s auth failed, source: %s", id, req.Source())
 		s.respondRegister(req, http.StatusForbidden, "Auth Failed", tx)
 		return
 	}
