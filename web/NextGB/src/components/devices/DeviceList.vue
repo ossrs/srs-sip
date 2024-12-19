@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { Search, Plus } from '@element-plus/icons-vue'
+import { Search, Plus, Refresh } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { deviceApi } from '@/api'
 import type { Device, ChannelInfo } from '@/types/api'
@@ -16,7 +16,7 @@ const currentDevice = ref<Device | null>(null)
 const channels = ref<ChannelInfo[]>([])
 const channelsLoading = ref(false)
 
-const formatDeviceData = (device: any): Device => {
+const formatDeviceData = (device: Device): Device => {
   return {
     device_id: device.device_id,
     source_addr: device.source_addr,
@@ -30,7 +30,7 @@ const fetchDevices = async () => {
   try {
     loading.value = true
     const response = await deviceApi.getDevices()
-    deviceList.value = response.data.map(formatDeviceData)
+    deviceList.value = (response.data as Device[]).map(formatDeviceData)
   } catch (error) {
     console.error('获取设备列表失败:', error)
   } finally {
@@ -39,14 +39,17 @@ const fetchDevices = async () => {
 }
 
 const filteredDevices = computed(() => {
-  if (!searchQuery.value) return deviceList.value
-  const query = searchQuery.value.toLowerCase()
-  return deviceList.value.filter(
-    (device) =>
-      device.name.toLowerCase().includes(query) ||
-      device.device_id.toLowerCase().includes(query) ||
-      device.source_addr.toLowerCase().includes(query),
-  )
+  if (!searchQuery.value.trim()) return deviceList.value
+  
+  const query = searchQuery.value.trim().toLowerCase()
+  return deviceList.value.filter((device) => {
+    return (
+      device.name?.toLowerCase().includes(query) ||
+      device.device_id?.toLowerCase().includes(query) ||
+      device.source_addr?.toLowerCase().includes(query) ||
+      device.network_type?.toLowerCase().includes(query)
+    )
+  })
 })
 
 const handleSearch = () => {
@@ -64,7 +67,7 @@ const showDeviceDetails = async (device: Device) => {
 
   try {
     const response = await deviceApi.getDeviceChannels(device.device_id)
-    channels.value = response.data
+    channels.value = response.data as ChannelInfo[]
   } catch (error) {
     console.error('获取设备通道失败:', error)
     ElMessage.error('获取设备通道失败')
@@ -88,22 +91,37 @@ onMounted(() => {
     <div class="toolbar">
       <el-input
         v-model="searchQuery"
-        placeholder="搜索设备..."
+        placeholder="搜索设备ID、名称、地址或网络类型..."
         class="search-input"
+        clearable
         @keyup.enter="handleSearch"
       >
         <template #prefix>
           <el-icon><Search /></el-icon>
         </template>
       </el-input>
-      <el-button type="primary" @click="handleSearch">搜索</el-button>
-      <el-button type="success">
-        <el-icon><Plus /></el-icon>
-        添加设备
+      <el-button 
+        type="primary" 
+        @click="handleSearch"
+      >
+        搜索
+      </el-button>
+      <el-button 
+        type="success" 
+        :loading="loading"
+        @click="fetchDevices"
+      >
+        <el-icon><Refresh /></el-icon>
+        刷新
       </el-button>
     </div>
 
     <el-table v-loading="loading" :data="paginatedDevices" border>
+      <template #empty>
+        <el-empty 
+          :description="searchQuery ? '未找到匹配的设备' : '暂无设备数据'" 
+        />
+      </template>
       <el-table-column prop="device_id" label="设备ID" />
       <el-table-column prop="source_addr" label="地址" />
       <el-table-column prop="network_type" label="网络类型" />
@@ -125,7 +143,7 @@ onMounted(() => {
       <el-pagination
         v-model:current-page="currentPage"
         :page-size="pageSize"
-        :total="100"
+        :total="filteredDevices.length"
         @current-change="handleCurrentChange"
         layout="total, prev, pager, next"
       />
@@ -158,7 +176,7 @@ onMounted(() => {
         </div>
 
         <div class="channel-list">
-          <h3>通道列表</h3>
+          <h3>��道列表</h3>
           <el-table v-loading="channelsLoading" :data="channels" border>
             <el-table-column prop="name" label="通道名称" />
             <el-table-column prop="device_id" label="通道ID" />

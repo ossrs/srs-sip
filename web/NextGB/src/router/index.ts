@@ -1,57 +1,33 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import type { RouteRecordRaw } from 'vue-router'
-
-declare module 'vue-router' {
-  interface RouteMeta {
-    title?: string
-  }
-}
-
-const routes: RouteRecordRaw[] = [
-  {
-    path: '/',
-    redirect: '/monitor',
-  },
-  {
-    path: '/monitor',
-    name: 'monitor',
-    component: () => import('../views/MonitorView.vue'),
-    meta: {
-      title: '实时监控',
-    },
-  },
-  {
-    path: '/devices',
-    name: 'devices',
-    component: () => import('../views/DevicesView.vue'),
-    meta: {
-      title: '设备管理',
-    },
-  },
-  {
-    path: '/settings',
-    name: 'settings',
-    component: () => import('../views/SettingsView.vue'),
-    meta: {
-      title: '系统设置',
-    },
-  },
-  {
-    path: '/:pathMatch(.*)*',
-    redirect: '/',
-  },
-]
+import MonitorView from '@/views/MonitorView.vue'
+import DevicesView from '@/views/DevicesView.vue'
+import SettingsView from '@/views/SettingsView.vue'
+import PlaybackView from '@/views/PlaybackView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
-  routes,
-})
-
-// 路由守卫
-router.beforeEach((to, from, next) => {
-  // 设置页面标题
-  document.title = `${to.meta.title || 'demo'}`
-  next()
+  routes: [
+    {
+      path: '/',
+      name: 'monitor',
+      component: MonitorView
+    },
+    {
+      path: '/devices',
+      name: 'devices',
+      component: DevicesView
+    },
+    {
+      path: '/settings',
+      name: 'settings',
+      component: SettingsView
+    },
+    {
+      path: '/playback',
+      name: 'playback',
+      component: PlaybackView
+    }
+  ]
 })
 
 export default router

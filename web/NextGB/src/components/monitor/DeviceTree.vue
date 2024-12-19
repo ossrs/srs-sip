@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { deviceApi } from '@/api'
 import type { Device, ChannelInfo } from '@/types/api'
 import { ElMessage } from 'element-plus'
+import { Search, Refresh } from '@element-plus/icons-vue'
 
 interface DeviceNode {
   device_id: string
@@ -15,6 +16,7 @@ interface DeviceNode {
 const devices = ref<Device[]>([])
 const deviceNodes = ref<DeviceNode[]>([])
 const loading = ref(false)
+const searchQuery = ref('')
 
 const formatDeviceData = (device: any): Device => {
   return {
@@ -72,6 +74,35 @@ const emit = defineEmits<{
   (e: 'select', data: { device: Device | undefined; channel: ChannelInfo }): void
 }>()
 
+const filteredData = computed(() => {
+  if (!searchQuery.value.trim()) return deviceNodes.value
+
+  const query = searchQuery.value.trim().toLowerCase()
+  return deviceNodes.value.filter(node => {
+    // 递归搜索设备和通道
+    const searchNode = (item: any): boolean => {
+      // 搜索设备名称和ID
+      if (item.label?.toLowerCase().includes(query) || 
+          item.device_id?.toLowerCase().includes(query)) {
+        return true
+      }
+      // 递归搜索子节点
+      if (item.children) {
+        return item.children.some(searchNode)
+      }
+      return false
+    }
+    return searchNode(node)
+  })
+})
+
+const tooltipRef = ref()
+
+const refreshDevices = () => {
+  fetchDevices()
+  tooltipRef.value?.hide()
+}
+
 onMounted(() => {
   fetchDevices()
 })
@@ -79,15 +110,40 @@ onMounted(() => {
 
 <template>
   <div class="device-tree">
-    <div class="tree-header">
-      <h3>设备列表</h3>
+    <div class="search-box">
+      <div class="search-wrapper">
+        <el-input
+          v-model="searchQuery"
+          placeholder="搜索设备或通道..."
+          clearable
+          size="small"
+        >
+          <template #prefix>
+            <el-icon><Search /></el-icon>
+          </template>
+        </el-input>
+        <el-tooltip
+          ref="tooltipRef"
+          content="刷新设备列表"
+          placement="top"
+        >
+          <el-button
+            type="primary"
+            :icon="Refresh"
+            size="small"
+            :loading="loading"
+            @click="refreshDevices"
+          />
+        </el-tooltip>
+      </div>
     </div>
+
     <el-tree
       v-loading="loading"
       :data="[
         {
           label: '所有设备',
-          children: deviceNodes,
+          children: filteredData,
         },
       ]"
       :props="{ children: 'children', label: 'label' }"
@@ -97,7 +153,9 @@ onMounted(() => {
     >
       <template #default="{ node, data }">
         <span class="custom-tree-node">
-          {{ data.label }}
+          <span :class="data.isChannel ? 'channel-label' : 'device-label'">
+            {{ data.label }}
+          </span>
           <el-tag
             v-if="data.isChannel"
             size="small"
@@ -113,12 +171,37 @@ onMounted(() => {
 
 <style scoped>
 .device-tree {
-  width: 100%;
   height: 100%;
-  background: #fff;
-  border-radius: 4px;
   display: flex;
   flex-direction: column;
+  background-color: #fff;
+  border-radius: 4px;
+  padding: 16px;
+}
+
+.search-box {
+  margin-bottom: 16px;
+}
+
+.search-wrapper {
+  display: flex;
+  gap: 8px;
+  
+  .el-input {
+    flex: 1;
+  }
+  
+  :deep(.el-input__wrapper) {
+    box-shadow: 0 0 0 1px #dcdfe6 inset;
+    
+    &:hover {
+      box-shadow: 0 0 0 1px #c0c4cc inset;
+    }
+    
+    &.is-focus {
+      box-shadow: 0 0 0 1px #409eff inset;
+    }
+  }
 }
 
 .tree-header {
@@ -128,17 +211,76 @@ onMounted(() => {
 
 .el-tree {
   flex: 1;
-  padding: 15px;
+  padding: 0;
   overflow-y: auto;
+
+  :deep(.el-tree-node) {
+    &.is-expanded > .el-tree-node__children {
+      padding-left: 20px;
+    }
+    
+    &::before {
+      content: '';
+      height: 100%;
+      width: 1px;
+      position: absolute;
+      left: -12px;
+      top: -4px;
+      border-left: 1px dotted #c0c4cc;
+    }
+
+    &:last-child::before {
+      height: 20px;
+    }
+  }
+
+  :deep(.el-tree-node__content) {
+    height: 32px;
+    padding-left: 8px !important;
+    
+    &:hover {
+      background-color: #f5f7fa;
+    }
+
+    &.is-current {
+      background-color: #ecf5ff;
+      color: #409eff;
+    }
+  }
+
+  :deep(.el-tree-node__expand-icon) {
+    font-size: 16px;
+    color: #909399;
+    
+    &.expanded {
+      transform: rotate(90deg);
+    }
+    
+    &.is-leaf {
+      color: transparent;
+    }
+  }
 }
 
 .custom-tree-node {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-:deep(.el-tree-node__content) {
-  height: 32px;
+  width: 100%;
+  padding: 0 4px;
+  
+  .device-label {
+    font-weight: 500;
+    color: #303133;
+  }
+  
+  .channel-label {
+    color: #606266;
+    font-size: 13px;
+  }
+  
+  .el-tag {
+    margin-left: auto;
+  }
 }
 </style>
