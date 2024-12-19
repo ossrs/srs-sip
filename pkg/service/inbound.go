@@ -30,17 +30,18 @@ func (s *UAS) onRegister(req *sip.Request, tx sip.ServerTransaction) {
 		return
 	}
 
-	// 检查是否有 Authorization 头
+	// Check if Authorization header exists
 	authHeader := req.GetHeaders("Authorization")
 
-	// 如果没有 Authorization 头，发送 401 响应要求认证
+	// If no Authorization header, send 401 response to request authentication
 	if len(authHeader) == 0 {
-		resp := stack.NewUnauthorizedResponse(req, http.StatusUnauthorized, "Unauthorized", s.conf.Realm)
+		nonce := GenerateNonce()
+		resp := stack.NewUnauthorizedResponse(req, http.StatusUnauthorized, "Unauthorized", nonce, s.conf.Realm)
 		_ = tx.Respond(resp)
 		return
 	}
 
-	// 验证 Authorization
+	// Validate Authorization
 	authInfo := ParseAuthorization(authHeader[0].Value())
 	if !ValidateAuth(authInfo, s.conf.Password) {
 		logger.E(s.ctx, "auth failed")
