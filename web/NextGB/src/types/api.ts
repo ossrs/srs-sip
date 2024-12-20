@@ -43,3 +43,14 @@ export interface ChannelInfo {
   }
   ssrc: string
 }
+
+export interface MediaServer {
+  id: string
+  name: string
+  status: 'online' | 'offline'
+  ip: string
+  port: number
+  streams: number
+  clients: number
+  type: 'SRS' | 'OTHER'  // 添加服务器类型
+}

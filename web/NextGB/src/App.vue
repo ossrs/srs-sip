@@ -1,6 +1,14 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { Monitor, Setting, Tools, Fold, VideoCamera, User, VideoPlay } from '@element-plus/icons-vue'
+import {
+  Monitor,
+  Setting,
+  Tools,
+  Fold,
+  VideoCamera,
+  User,
+  VideoPlay,
+} from '@element-plus/icons-vue'
 
 const isCollapse = ref(false)
 
@@ -33,15 +41,17 @@ const toggleSidebar = () => {
             <el-icon><Setting /></el-icon>
             <span>设备管理</span>
           </template>
-          <el-menu-item index="2-1" @click="$router.push('/devices')">
-            设备列表
-          </el-menu-item>
+          <el-menu-item index="2-1" @click="$router.push('/devices')"> 设备列表 </el-menu-item>
         </el-sub-menu>
 
-        <el-menu-item index="3" @click="$router.push('/settings')">
-          <el-icon><Tools /></el-icon>
-          <span>系统设置</span>
-        </el-menu-item>
+        <el-sub-menu index="3">
+          <template #title>
+            <el-icon><Tools /></el-icon>
+            <span>系统设置</span>
+          </template>
+          <el-menu-item index="3-1" @click="$router.push('/settings')">基本设置</el-menu-item>
+          <el-menu-item index="3-2" @click="$router.push('/media')">媒体服务管理</el-menu-item>
+        </el-sub-menu>
       </el-menu>
     </div>
 
@@ -136,11 +146,11 @@ const toggleSidebar = () => {
   height: 50px;
   line-height: 50px;
   color: #bfcbd9;
-  
+
   &:hover {
     background-color: #263445 !important;
   }
-  
+
   &.is-active {
     background-color: #1890ff !important;
     color: #fff;
@@ -151,7 +161,7 @@ const toggleSidebar = () => {
   height: 50px;
   line-height: 50px;
   color: #bfcbd9;
-  
+
   &:hover {
     background-color: #263445 !important;
   }
@@ -159,11 +169,11 @@ const toggleSidebar = () => {
 
 :deep(.el-menu--collapse) {
   width: 64px;
-  
+
   .el-sub-menu__title span {
     display: none;
   }
-  
+
   .el-sub-menu__title .el-sub-menu__icon-arrow {
     display: none;
   }
@@ -172,14 +182,14 @@ const toggleSidebar = () => {
 /* 折叠状态下的样式 */
 .is-collapse {
   width: 64px;
-  
+
   .logo {
     padding: 0 16px;
-    
+
     img {
       margin: 0;
     }
-    
+
     span {
       opacity: 0;
       display: none;
@@ -221,7 +231,7 @@ const toggleSidebar = () => {
   align-items: center;
   cursor: pointer;
   color: #333;
-  
+
   .avatar-icon {
     width: 32px;
     height: 32px;
@@ -253,11 +263,11 @@ const toggleSidebar = () => {
     height: 44px;
     line-height: 44px;
     font-size: 13px;
-    
+
     &:hover {
       background-color: #001528 !important;
     }
-    
+
     &.is-active {
       background-color: #1890ff !important;
       &::before {
@@ -278,7 +288,7 @@ const toggleSidebar = () => {
   &:hover {
     background-color: #263445 !important;
   }
-  
+
   .el-sub-menu__icon-arrow {
     right: 15px;
     margin-top: -4px;
@@ -291,7 +301,7 @@ const toggleSidebar = () => {
 :deep(.el-sub-menu.is-opened) {
   > .el-sub-menu__title {
     color: #f4f4f5;
-    
+
     .el-sub-menu__icon-arrow {
       transform: rotateZ(180deg);
     }
@@ -302,18 +312,18 @@ const toggleSidebar = () => {
 :deep(.el-menu--popup) {
   background-color: #1f2d3d !important;
   padding: 0;
-  
+
   .el-menu-item {
     height: 44px;
     line-height: 44px;
     font-size: 13px;
     padding: 0 20px !important;
     color: #bfcbd9;
-    
+
     &:hover {
       background-color: #001528 !important;
     }
-    
+
     &.is-active {
       background-color: #1890ff !important;
       color: #fff;
@@ -324,6 +334,9 @@ const toggleSidebar = () => {
 /* 修改菜单过渡动画 */
 :deep(.el-menu-item),
 :deep(.el-sub-menu__title) {
-  transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+  transition:
+    background-color 0.3s,
+    color 0.3s,
+    border-color 0.3s;
 }
 </style>

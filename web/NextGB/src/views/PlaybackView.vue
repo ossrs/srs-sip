@@ -42,9 +42,9 @@ const handleSearch = () => {
     <div class="right-panel">
       <div class="playback-panel">
         <div class="video-container">
-          <div 
+          <div
             class="video-banner"
-            :class="{ 'show': showBanner }"
+            :class="{ show: showBanner }"
             @mouseenter="showBanner = true"
             @mouseleave="showBanner = false"
           >
@@ -80,28 +80,20 @@ const handleSearch = () => {
         <div class="control-panel">
           <div class="control-buttons">
             <el-button-group>
-              <el-button 
-                :icon="VideoPlay" 
+              <el-button
+                :icon="VideoPlay"
                 :disabled="!currentChannel || isPlaying"
                 @click="handlePlay"
                 size="small"
               />
-              <el-button 
-                :icon="VideoPause" 
+              <el-button
+                :icon="VideoPause"
                 :disabled="!currentChannel || !isPlaying"
                 @click="handlePause"
                 size="small"
               />
-              <el-button 
-                :icon="VideoCamera"
-                :disabled="!currentChannel"
-                size="small"
-              />
-              <el-button 
-                :icon="Download"
-                :disabled="!currentChannel"
-                size="small"
-              />
+              <el-button :icon="VideoCamera" :disabled="!currentChannel" size="small" />
+              <el-button :icon="Download" :disabled="!currentChannel" size="small" />
             </el-button-group>
             <el-slider
               v-model="volume"
@@ -183,7 +175,7 @@ const handleSearch = () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  
+
   :deep(.el-empty) {
     color: #909399;
   }
@@ -202,7 +194,7 @@ const handleSearch = () => {
   gap: 16px;
   padding: 0 0;
   color: #fff;
-  
+
   .el-button-group {
     margin: 0 16px;
     .el-button {
@@ -218,13 +210,13 @@ const handleSearch = () => {
       --el-button-disabled-text-color: rgba(255, 255, 255, 0.3);
       --el-button-disabled-bg-color: transparent;
       --el-button-disabled-border-color: transparent;
-      
+
       :deep(.el-icon) {
         font-size: 16px;
       }
     }
   }
-  
+
   :deep(.el-date-editor) {
     --el-input-bg-color: transparent;
     --el-input-border-color: rgba(255, 255, 255, 0.2);
@@ -232,7 +224,7 @@ const handleSearch = () => {
     --el-input-text-color: #fff;
     --el-input-placeholder-color: rgba(255, 255, 255, 0.5);
   }
-  
+
   :deep(.el-slider) {
     --el-slider-main-bg-color: var(--el-color-primary);
     --el-slider-runway-bg-color: rgba(255, 255, 255, 0.2);
@@ -256,7 +248,7 @@ const handleSearch = () => {
   background-color: #242424;
   padding: 0 16px;
   gap: 16px;
-  
+
   :deep(.el-date-editor) {
     --el-input-bg-color: transparent;
     --el-input-border-color: rgba(255, 255, 255, 0.2);
@@ -264,7 +256,7 @@ const handleSearch = () => {
     --el-input-text-color: #fff;
     --el-input-placeholder-color: rgba(255, 255, 255, 0.5);
   }
-  
+
   :deep(.el-button) {
     --el-button-bg-color: var(--el-color-primary);
     --el-button-border-color: var(--el-color-primary);
@@ -326,4 +318,4 @@ const handleSearch = () => {
   right: 0;
   height: 20px;
 }
-</style> 
+</style>

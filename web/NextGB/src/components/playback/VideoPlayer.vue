@@ -30,7 +30,7 @@ const pause = () => {
 defineExpose({
   play,
   pause,
-  isPlaying
+  isPlaying,
 })
 
 // 组件卸载时停止播放
@@ -50,7 +50,7 @@ onUnmounted(() => {
       controlsList="nodownload"
       :poster="channel?.info?.snapshot_url"
     >
-      <source :src="channel?.info?.stream_url" type="video/mp4">
+      <source :src="channel?.info?.stream_url" type="video/mp4" />
       您的浏览器不支持 video 标签
     </video>
   </div>
@@ -102,4 +102,4 @@ onUnmounted(() => {
 .video-element::-webkit-media-controls-mute-button {
   display: none;
 }
-</style> 
+</style>

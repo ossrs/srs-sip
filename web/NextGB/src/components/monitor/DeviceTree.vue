@@ -41,12 +41,12 @@ const fetchDevices = async () => {
         const deviceNode: DeviceNode = {
           device_id: device.device_id,
           label: device.device_id,
-          children: response.data.map(channel => ({
+          children: response.data.map((channel) => ({
             device_id: channel.device_id,
             label: channel.name || channel.device_id,
             isChannel: true,
-            channelInfo: channel
-          }))
+            channelInfo: channel,
+          })),
         }
         nodes.push(deviceNode)
       } catch (error) {
@@ -78,12 +78,14 @@ const filteredData = computed(() => {
   if (!searchQuery.value.trim()) return deviceNodes.value
 
   const query = searchQuery.value.trim().toLowerCase()
-  return deviceNodes.value.filter(node => {
+  return deviceNodes.value.filter((node) => {
     // 递归搜索设备和通道
     const searchNode = (item: any): boolean => {
       // 搜索设备名称和ID
-      if (item.label?.toLowerCase().includes(query) || 
-          item.device_id?.toLowerCase().includes(query)) {
+      if (
+        item.label?.toLowerCase().includes(query) ||
+        item.device_id?.toLowerCase().includes(query)
+      ) {
         return true
       }
       // 递归搜索子节点
@@ -112,21 +114,12 @@ onMounted(() => {
   <div class="device-tree">
     <div class="search-box">
       <div class="search-wrapper">
-        <el-input
-          v-model="searchQuery"
-          placeholder="搜索设备或通道..."
-          clearable
-          size="small"
-        >
+        <el-input v-model="searchQuery" placeholder="搜索设备或通道..." clearable size="small">
           <template #prefix>
             <el-icon><Search /></el-icon>
           </template>
         </el-input>
-        <el-tooltip
-          ref="tooltipRef"
-          content="刷新设备列表"
-          placement="top"
-        >
+        <el-tooltip ref="tooltipRef" content="刷新设备列表" placement="top">
           <el-button
             type="primary"
             :icon="Refresh"
@@ -186,18 +179,18 @@ onMounted(() => {
 .search-wrapper {
   display: flex;
   gap: 8px;
-  
+
   .el-input {
     flex: 1;
   }
-  
+
   :deep(.el-input__wrapper) {
     box-shadow: 0 0 0 1px #dcdfe6 inset;
-    
+
     &:hover {
       box-shadow: 0 0 0 1px #c0c4cc inset;
     }
-    
+
     &.is-focus {
       box-shadow: 0 0 0 1px #409eff inset;
     }
@@ -218,7 +211,7 @@ onMounted(() => {
     &.is-expanded > .el-tree-node__children {
       padding-left: 20px;
     }
-    
+
     &::before {
       content: '';
       height: 100%;
@@ -237,7 +230,7 @@ onMounted(() => {
   :deep(.el-tree-node__content) {
     height: 32px;
     padding-left: 8px !important;
-    
+
     &:hover {
       background-color: #f5f7fa;
     }
@@ -251,11 +244,11 @@ onMounted(() => {
   :deep(.el-tree-node__expand-icon) {
     font-size: 16px;
     color: #909399;
-    
+
     &.expanded {
       transform: rotate(90deg);
     }
-    
+
     &.is-leaf {
       color: transparent;
     }
@@ -268,17 +261,17 @@ onMounted(() => {
   gap: 8px;
   width: 100%;
   padding: 0 4px;
-  
+
   .device-label {
     font-weight: 500;
     color: #303133;
   }
-  
+
   .channel-label {
     color: #606266;
     font-size: 13px;
   }
-  
+
   .el-tag {
     margin-left: auto;
   }

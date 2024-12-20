@@ -40,7 +40,7 @@ const fetchDevices = async () => {
 
 const filteredDevices = computed(() => {
   if (!searchQuery.value.trim()) return deviceList.value
-  
+
   const query = searchQuery.value.trim().toLowerCase()
   return deviceList.value.filter((device) => {
     return (
@@ -100,17 +100,8 @@ onMounted(() => {
           <el-icon><Search /></el-icon>
         </template>
       </el-input>
-      <el-button 
-        type="primary" 
-        @click="handleSearch"
-      >
-        搜索
-      </el-button>
-      <el-button 
-        type="success" 
-        :loading="loading"
-        @click="fetchDevices"
-      >
+      <el-button type="primary" @click="handleSearch"> 搜索 </el-button>
+      <el-button type="success" :loading="loading" @click="fetchDevices">
         <el-icon><Refresh /></el-icon>
         刷新
       </el-button>
@@ -118,9 +109,7 @@ onMounted(() => {
 
     <el-table v-loading="loading" :data="paginatedDevices" border>
       <template #empty>
-        <el-empty 
-          :description="searchQuery ? '未找到匹配的设备' : '暂无设备数据'" 
-        />
+        <el-empty :description="searchQuery ? '未找到匹配的设备' : '暂无设备数据'" />
       </template>
       <el-table-column prop="device_id" label="设备ID" />
       <el-table-column prop="source_addr" label="地址" />
