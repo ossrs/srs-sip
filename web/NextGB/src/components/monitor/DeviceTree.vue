@@ -17,6 +17,7 @@ const devices = ref<Device[]>([])
 const deviceNodes = ref<DeviceNode[]>([])
 const loading = ref(false)
 const searchQuery = ref('')
+const expandedKeys = ref<string[]>([])
 
 const formatDeviceData = (device: any): Device => {
   return {
@@ -32,7 +33,7 @@ const fetchDevices = async () => {
   try {
     loading.value = true
     const response = await deviceApi.getDevices()
-    devices.value = response.data.map(formatDeviceData)
+    devices.value = (response.data || []).map(formatDeviceData)
 
     const nodes: DeviceNode[] = []
     for (const device of devices.value) {
@@ -41,7 +42,7 @@ const fetchDevices = async () => {
         const deviceNode: DeviceNode = {
           device_id: device.device_id,
           label: device.device_id,
-          children: response.data.map((channel) => ({
+          children: (response.data || []).map((channel: ChannelInfo) => ({
             device_id: channel.device_id,
             label: channel.name || channel.device_id,
             isChannel: true,
@@ -75,27 +76,51 @@ const emit = defineEmits<{
 }>()
 
 const filteredData = computed(() => {
-  if (!searchQuery.value.trim()) return deviceNodes.value
+  if (!searchQuery.value.trim()) {
+    expandedKeys.value = [] // 清空展开的节点
+    return deviceNodes.value
+  }
 
   const query = searchQuery.value.trim().toLowerCase()
-  return deviceNodes.value.filter((node) => {
+  expandedKeys.value = ['root'] // 添加根节点，确保"所有设���"始终展开
+
+  const filteredNodes = deviceNodes.value.filter((node) => {
     // 递归搜索设备和通道
     const searchNode = (item: any): boolean => {
-      // 搜索设备名称和ID
-      if (
-        item.label?.toLowerCase().includes(query) ||
+      const isMatch = item.label?.toLowerCase().includes(query) ||
         item.device_id?.toLowerCase().includes(query)
-      ) {
-        return true
+      
+      // 如果当前节点匹配
+      if (isMatch) {
+        if (item.isChannel) {
+          // 如果是通道节点匹配，将其父设备节点添加到展开列表中
+          const parentDevice = deviceNodes.value.find(
+            device => device.children?.some(channel => channel.device_id === item.device_id)
+          )
+          if (parentDevice) {
+            expandedKeys.value.push(parentDevice.device_id)
+          }
+        } else {
+          // 如果是设备节点匹配，将其自身添加到展开列表中
+          expandedKeys.value.push(item.device_id)
+        }
       }
+      
       // 递归搜索子节点
       if (item.children) {
-        return item.children.some(searchNode)
+        const hasMatchingChild = item.children.some(searchNode)
+        // 如果子节点匹配，将当前节点ID添加到展开列表中
+        if (hasMatchingChild && !expandedKeys.value.includes(item.device_id)) {
+          expandedKeys.value.push(item.device_id)
+        }
+        return isMatch || hasMatchingChild
       }
-      return false
+      return isMatch
     }
     return searchNode(node)
   })
+
+  return filteredNodes
 })
 
 const tooltipRef = ref()
@@ -136,6 +161,7 @@ onMounted(() => {
       :data="[
         {
           label: '所有设备',
+          device_id: 'root',
           children: filteredData,
         },
       ]"
@@ -143,6 +169,7 @@ onMounted(() => {
       @node-click="handleSelect"
       node-key="device_id"
       highlight-current
+      :expanded-keys="expandedKeys"
     >
       <template #default="{ node, data }">
         <span class="custom-tree-node">
