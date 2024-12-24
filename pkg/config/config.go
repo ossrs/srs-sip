@@ -6,11 +6,14 @@ import (
 )
 
 type MainConfig struct {
-	Serial         string `ymal:"serial"`
-	Realm          string `ymal:"realm"`
-	SipHost        string `ymal:"sip-host"`
-	SipPort        int    `ymal:"sip-port"`
-	Password       string `ymal:"password"`
+	Serial  string `ymal:"serial"`
+	Realm   string `ymal:"realm"`
+	SipHost string `ymal:"sip-host"`
+	SipPort int    `ymal:"sip-port"`
+
+	EnableAuth bool   `ymal:"enable-auth"`
+	Password   string `ymal:"password"`
+
 	MediaAddr      string `ymal:"media-addr"`
 	HttpServerPort int    `ymal:"http-server-port"`
 	APIPort        int    `ymal:"api-port"`

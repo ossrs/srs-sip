@@ -30,23 +30,25 @@ func (s *UAS) onRegister(req *sip.Request, tx sip.ServerTransaction) {
 		return
 	}
 
-	// Check if Authorization header exists
-	authHeader := req.GetHeaders("Authorization")
+	if s.conf.EnableAuth {
+		// Check if Authorization header exists
+		authHeader := req.GetHeaders("Authorization")
 
-	// If no Authorization header, send 401 response to request authentication
-	if len(authHeader) == 0 {
-		nonce := GenerateNonce()
-		resp := stack.NewUnauthorizedResponse(req, http.StatusUnauthorized, "Unauthorized", nonce, s.conf.Realm)
-		_ = tx.Respond(resp)
-		return
-	}
+		// If no Authorization header, send 401 response to request authentication
+		if len(authHeader) == 0 {
+			nonce := GenerateNonce()
+			resp := stack.NewUnauthorizedResponse(req, http.StatusUnauthorized, "Unauthorized", nonce, s.conf.Realm)
+			_ = tx.Respond(resp)
+			return
+		}
 
-	// Validate Authorization
-	authInfo := ParseAuthorization(authHeader[0].Value())
-	if !ValidateAuth(authInfo, s.conf.Password) {
-		logger.Ef(s.ctx, "%s auth failed, source: %s", id, req.Source())
-		s.respondRegister(req, http.StatusForbidden, "Auth Failed", tx)
-		return
+		// Validate Authorization
+		authInfo := ParseAuthorization(authHeader[0].Value())
+		if !ValidateAuth(authInfo, s.conf.Password) {
+			logger.Ef(s.ctx, "%s auth failed, source: %s", id, req.Source())
+			s.respondRegister(req, http.StatusForbidden, "Auth Failed", tx)
+			return
+		}
 	}
 
 	isUnregister := false
