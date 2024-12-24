@@ -249,7 +249,7 @@ func (p *UniviewParser) ParseChannels(list ...ChannelInfo) ([]ChannelInfo, error
 }
 
 func init() {
-	parserRegistry.RegisterParser("HIKVISION", &HikvisionParser{})
+	parserRegistry.RegisterParser("Hikvision", &HikvisionParser{})
 	parserRegistry.RegisterParser("DAHUA", &DahuaParser{})
 	parserRegistry.RegisterParser("UNIVIEW", &UniviewParser{})
 }
