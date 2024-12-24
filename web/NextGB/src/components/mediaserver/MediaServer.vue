@@ -71,7 +71,7 @@ const handleSetDefault = () => {
 
 .server-card:hover {
   transform: translateY(-5px);
-  box-shadow: 0 2px 12px 0 rgba(0,0,0,.1);
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
 }
 
 .server-header {
@@ -146,4 +146,4 @@ const handleSetDefault = () => {
 :deep(.el-radio-group) {
   width: 100%;
 }
-</style> 
+</style>

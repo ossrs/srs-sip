@@ -52,5 +52,5 @@ export interface MediaServer {
   port: number
   streams: number
   clients: number
-  type: 'SRS' | 'OTHER'  // 添加服务器类型
+  type: 'SRS' | 'OTHER' // 添加服务器类型
 }

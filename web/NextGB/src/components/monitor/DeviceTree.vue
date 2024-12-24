@@ -87,15 +87,15 @@ const filteredData = computed(() => {
   const filteredNodes = deviceNodes.value.filter((node) => {
     // 递归搜索设备和通道
     const searchNode = (item: any): boolean => {
-      const isMatch = item.label?.toLowerCase().includes(query) ||
-        item.device_id?.toLowerCase().includes(query)
-      
+      const isMatch =
+        item.label?.toLowerCase().includes(query) || item.device_id?.toLowerCase().includes(query)
+
       // 如果当前节点匹配
       if (isMatch) {
         if (item.isChannel) {
           // 如果是通道节点匹配，将其父设备节点添加到展开列表中
-          const parentDevice = deviceNodes.value.find(
-            device => device.children?.some(channel => channel.device_id === item.device_id)
+          const parentDevice = deviceNodes.value.find((device) =>
+            device.children?.some((channel) => channel.device_id === item.device_id),
           )
           if (parentDevice) {
             expandedKeys.value.push(parentDevice.device_id)
@@ -105,7 +105,7 @@ const filteredData = computed(() => {
           expandedKeys.value.push(item.device_id)
         }
       }
-      
+
       // 递归搜索子节点
       if (item.children) {
         const hasMatchingChild = item.children.some(searchNode)

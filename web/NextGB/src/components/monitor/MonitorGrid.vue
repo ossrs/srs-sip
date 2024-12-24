@@ -7,16 +7,16 @@ import { deviceApi } from '@/api'
 import { SrsRtcPlayer } from '@/api/srs'
 
 interface DeviceWithChannel extends Device {
-  channelInfo?: ChannelInfo;
-  player?: any;
-  error?: boolean;
-  id?: string;
-  channel?: ChannelInfo;
+  channelInfo?: ChannelInfo
+  player?: any
+  error?: boolean
+  id?: string
+  channel?: ChannelInfo
 }
 
 interface StreamResponse {
-  url: string;
-  [key: string]: any;
+  url: string
+  [key: string]: any
 }
 
 // 布局配置
@@ -66,7 +66,7 @@ const startWebRTCPlay = async (url: string, index: number, device: DeviceWithCha
 const startStream = async (device: DeviceWithChannel, index: number) => {
   try {
     device.error = false
-    
+
     const response = await deviceApi.inviteStream({
       device_id: device.channel!.parent_id,
       channel_id: device.channel!.device_id,
@@ -112,11 +112,11 @@ const addDevice = async (device: Device & { channel: ChannelInfo }) => {
         ...device,
         channelInfo: device.channel,
         channel: device.channel,
-        error: false
+        error: false,
       }
       selectedDevices.value.push(deviceWithChannel)
       const index = selectedDevices.value.length - 1
-      
+
       await startStream(deviceWithChannel, index)
       saveLayoutState()
     } catch (error) {
@@ -138,7 +138,7 @@ const removeDevice = async (index: number) => {
   const videoElement = document.getElementById(`video-player-${index}`) as HTMLVideoElement
   if (videoElement?.srcObject) {
     const stream = videoElement.srcObject as MediaStream
-    stream.getTracks().forEach(track => track.stop())
+    stream.getTracks().forEach((track) => track.stop())
     videoElement.srcObject = null
   }
 
@@ -157,7 +157,7 @@ const stopAutoReconnect = (index: number) => {
 const startAutoReconnect = (index: number) => {
   if (!autoReconnectEnabled.value) return
   stopAutoReconnect(index)
-  
+
   const timer = window.setInterval(async () => {
     const device = selectedDevices.value[index]
     if (device?.error) {
@@ -167,20 +167,23 @@ const startAutoReconnect = (index: number) => {
       stopAutoReconnect(index)
     }
   }, reconnectInterval.value * 1000)
-  
+
   reconnectTimers[index] = timer
 }
 
 // 布局状态管理
 const saveLayoutState = () => {
   try {
-    localStorage.setItem('monitorGridLayout', JSON.stringify({
-      layout: currentLayout.value,
-      devices: selectedDevices.value.map(d => ({
-        name: d.name,
-        channelInfo: d.channelInfo
-      }))
-    }))
+    localStorage.setItem(
+      'monitorGridLayout',
+      JSON.stringify({
+        layout: currentLayout.value,
+        devices: selectedDevices.value.map((d) => ({
+          name: d.name,
+          channelInfo: d.channelInfo,
+        })),
+      }),
+    )
   } catch (err) {
     console.error('保存布局状态失败:', err)
   }
@@ -207,7 +210,7 @@ const restoreLayoutState = async () => {
 const handleVideoDoubleClick = (index: number) => {
   const videoElement = document.getElementById(`video-player-${index}`) as HTMLVideoElement
   if (!videoElement) return
-  
+
   try {
     if (!document.fullscreenElement) {
       videoElement.requestFullscreen()
@@ -267,18 +270,18 @@ const captureImage = async (index: number) => {
     if (!ctx) {
       throw new Error('无法创建canvas上下文')
     }
-    
+
     ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height)
-    
+
     const device = selectedDevices.value[index]
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
     const filename = `${device.name || 'capture'}-${timestamp}.png`
-    
+
     const link = document.createElement('a')
     link.download = filename
     link.href = canvas.toDataURL('image/png')
     link.click()
-    
+
     ElMessage.success('抓图成功')
   } catch (err) {
     console.error('抓图失败:', err)
@@ -289,7 +292,7 @@ const captureImage = async (index: number) => {
 const getControlSize = (index: number) => {
   const videoElement = document.getElementById(`video-player-${index}`) as HTMLVideoElement
   if (!videoElement) return { btnSize: 24, iconSize: 12 }
-  
+
   const width = videoElement.clientWidth
   if (width < 300) {
     return { btnSize: 20, iconSize: 10 }
@@ -308,13 +311,13 @@ const clearAllDevices = async () => {
     await ElMessageBox.confirm('确定要清空所有设备吗？', '提示', {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
-      type: 'warning'
+      type: 'warning',
     })
-    
+
     while (selectedDevices.value.length > 0) {
       await removeDevice(0)
     }
-    
+
     ElMessage.success('已清空所有设备')
   } catch (err) {
     if (err !== 'cancel') {
@@ -335,10 +338,10 @@ watch(currentLayout, async (newLayout, oldLayout) => {
         {
           confirmButtonText: '确定',
           cancelButtonText: '取消',
-          type: 'warning'
-        }
+          type: 'warning',
+        },
       )
-      
+
       const devicesToRemove = selectedDevices.value.slice(maxSize)
       for (const device of devicesToRemove) {
         const index = selectedDevices.value.indexOf(device)
@@ -361,18 +364,18 @@ watch(currentLayout, async (newLayout, oldLayout) => {
 // 生命周期钩子
 onMounted(async () => {
   await restoreLayoutState()
-  
+
   document.addEventListener('fullscreenchange', () => {
     isFullscreen.value = !!document.fullscreenElement
   })
 })
 
 onBeforeUnmount(() => {
-  reconnectTimers.forEach(timer => {
+  reconnectTimers.forEach((timer) => {
     if (timer) clearInterval(timer)
   })
-  
-  selectedDevices.value.forEach(device => {
+
+  selectedDevices.value.forEach((device) => {
     if (device.player) {
       try {
         device.player.close()
@@ -385,9 +388,8 @@ onBeforeUnmount(() => {
 
 defineExpose({
   addDevice,
-  clearAllDevices
+  clearAllDevices,
 })
-
 </script>
 
 <template>
@@ -395,8 +397,8 @@ defineExpose({
     <div class="grid-toolbar">
       <div class="toolbar-left">
         <el-button-group>
-          <el-button 
-            v-for="(layout, key) in layouts" 
+          <el-button
+            v-for="(layout, key) in layouts"
             :key="key"
             :type="currentLayout === key ? 'primary' : ''"
             @click="currentLayout = key"
@@ -407,22 +409,14 @@ defineExpose({
       </div>
       <div class="toolbar-right">
         <el-button-group>
-          <el-button 
-            type="primary" 
-            @click="showSettings = true"
-            :title="'设置'"
-          >
+          <el-button type="primary" @click="showSettings = true" :title="'设置'">
             <el-icon><Setting /></el-icon>
           </el-button>
-          <el-button 
-            type="danger" 
-            @click="clearAllDevices"
-            :title="'清空所有设备'"
-          >
+          <el-button type="danger" @click="clearAllDevices" :title="'清空所有设备'">
             清空
           </el-button>
-          <el-button 
-            type="primary" 
+          <el-button
+            type="primary"
             @click="toggleGridFullscreen"
             :title="isFullscreen ? '退出全屏' : '全屏显示'"
           >
@@ -431,71 +425,56 @@ defineExpose({
         </el-button-group>
       </div>
     </div>
-    
-    <div 
-      class="grid-container" 
-      :class="{ 'is-fullscreen': isFullscreen }" 
-      :style="gridStyle"
-    >
-      <div 
-        v-for="i in maxDevices" 
-        :key="i" 
-        class="grid-item"
-      >
+
+    <div class="grid-container" :class="{ 'is-fullscreen': isFullscreen }" :style="gridStyle">
+      <div v-for="i in maxDevices" :key="i" class="grid-item">
         <template v-if="selectedDevices[i - 1]">
-          <div 
-            class="video-container" 
-            :class="{ 'has-error': selectedDevices[i - 1].error }"
-          >
+          <div class="video-container" :class="{ 'has-error': selectedDevices[i - 1].error }">
             <div class="video-placeholder">
-              <video 
-                :id="'video-player-' + (i-1)" 
-                width="100%" 
-                height="100%" 
-                controls 
+              <video
+                :id="'video-player-' + (i - 1)"
+                width="100%"
+                height="100%"
+                controls
                 autoplay
                 @error="handleVideoError(i - 1, $event)"
                 @dblclick="handleVideoDoubleClick(i - 1)"
               ></video>
-              
+
               <!-- 错误状态 -->
               <div v-if="selectedDevices[i - 1].error" class="error-overlay">
                 <span>播放失败</span>
-                <el-button 
-                  type="primary" 
-                  size="small" 
-                  @click="retryStream(i - 1)"
-                >
+                <el-button type="primary" size="small" @click="retryStream(i - 1)">
                   <el-icon><Refresh /></el-icon>
                   重试
                 </el-button>
               </div>
             </div>
-            
+
             <div class="video-controls">
               <div class="control-bar">
-                <el-button 
-                  type="primary" 
-                  class="control-btn" 
+                <el-button
+                  type="primary"
+                  class="control-btn"
                   @click="captureImage(i - 1)"
-                  :style="{ 
-                    width: getControlSize(i - 1).btnSize + 'px', 
+                  :style="{
+                    width: getControlSize(i - 1).btnSize + 'px',
                     height: getControlSize(i - 1).btnSize + 'px',
-                    fontSize: getControlSize(i - 1).iconSize + 'px'
+                    fontSize: getControlSize(i - 1).iconSize + 'px',
                   }"
                   :disabled="selectedDevices[i - 1].error"
                   :title="'抓图'"
                 >
                   <el-icon><Camera /></el-icon>
                 </el-button>
-                <el-button 
-                  type="danger" 
-                  class="control-btn" 
+                <el-button
+                  type="danger"
+                  class="control-btn"
                   @click="removeDevice(i - 1)"
-                  :style="{ 
-                    width: getControlSize(i - 1).btnSize + 'px', 
+                  :style="{
+                    width: getControlSize(i - 1).btnSize + 'px',
                     height: getControlSize(i - 1).btnSize + 'px',
-                    fontSize: getControlSize(i - 1).iconSize + 'px'
+                    fontSize: getControlSize(i - 1).iconSize + 'px',
                   }"
                   :title="'移除'"
                 >
@@ -511,20 +490,15 @@ defineExpose({
         </div>
       </div>
     </div>
-    
+
     <!-- 设置对话框 -->
-    <el-dialog
-      v-model="showSettings"
-      title="设置"
-      width="400px"
-      destroy-on-close
-    >
+    <el-dialog v-model="showSettings" title="设置" width="400px" destroy-on-close>
       <el-form label-width="120px">
         <el-form-item label="自动重连">
           <el-switch v-model="autoReconnectEnabled" />
         </el-form-item>
         <el-form-item label="重连间隔(秒)">
-          <el-input-number 
+          <el-input-number
             v-model="reconnectInterval"
             :min="5"
             :max="60"
@@ -536,9 +510,7 @@ defineExpose({
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="showSettings = false">取消</el-button>
-          <el-button type="primary" @click="showSettings = false">
-            确定
-          </el-button>
+          <el-button type="primary" @click="showSettings = false"> 确定 </el-button>
         </span>
       </template>
     </el-dialog>
@@ -564,7 +536,8 @@ defineExpose({
   border-bottom: 1px solid #eee;
 }
 
-.toolbar-left, .toolbar-right {
+.toolbar-left,
+.toolbar-right {
   display: flex;
   gap: 10px;
 }
@@ -598,7 +571,7 @@ defineExpose({
 }
 
 .video-container.has-error .video-placeholder {
-  border: 2px solid #F56C6C;
+  border: 2px solid #f56c6c;
 }
 
 .video-placeholder {
@@ -637,7 +610,7 @@ defineExpose({
   background: rgba(0, 0, 0, 0.7);
   gap: 10px;
   z-index: 3;
-  color: #F56C6C;
+  color: #f56c6c;
 }
 
 .video-controls {
@@ -690,11 +663,11 @@ defineExpose({
 }
 
 .control-btn:hover {
-  color: #409EFF !important;
+  color: #409eff !important;
 }
 
 .control-btn.el-button--danger:hover {
-  color: #F56C6C !important;
+  color: #f56c6c !important;
 }
 
 .control-btn .el-icon {
@@ -721,7 +694,7 @@ defineExpose({
 }
 
 .empty-grid:hover {
-  color: #409EFF;
+  color: #409eff;
   background: #1d1d1d;
 }
 
@@ -741,7 +714,7 @@ defineExpose({
     padding: 8px 15px;
     transition: all 0.3s ease;
   }
-  
+
   .el-button:hover {
     transform: translateY(-1px);
     box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
@@ -816,7 +789,7 @@ defineExpose({
 }
 
 .empty-grid:hover {
-  color: #409EFF;
+  color: #409eff;
   background: #1d1d1d;
 }
 
@@ -849,7 +822,7 @@ defineExpose({
     padding: 8px 15px;
     transition: all 0.3s ease;
   }
-  
+
   .el-button:hover {
     transform: translateY(-1px);
     box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);

@@ -6,7 +6,7 @@ import { deviceApi } from '@/api'
 import type { Device, ChannelInfo } from '@/types/api'
 
 interface ExtendedDevice extends Device {
-  channelCount?: number;
+  channelCount?: number
 }
 
 const searchQuery = ref('')
@@ -29,7 +29,7 @@ const formatDeviceData = (device: Device): ExtendedDevice => {
     ...device,
     status: device.status || 'offline',
     name: device.name || device.device_id,
-    channelCount: 0
+    channelCount: 0,
   }
 }
 
@@ -38,20 +38,20 @@ const fetchDevices = async (showError = true) => {
     loading.value = true
     const response = await deviceApi.getDevices()
     if (response?.data) {
-      const devices = ((response.data as unknown) as Device[]).map(formatDeviceData)
+      const devices = (response.data as unknown as Device[]).map(formatDeviceData)
       // 获取每个设备的通道数量
       await Promise.all(
         devices.map(async (device) => {
           try {
             const channelsResponse = await deviceApi.getDeviceChannels(device.device_id)
             if (channelsResponse?.data) {
-              device.channelCount = ((channelsResponse.data as unknown) as ChannelInfo[]).length
+              device.channelCount = (channelsResponse.data as unknown as ChannelInfo[]).length
             }
           } catch (error) {
             console.error(`获取设备 ${device.device_id} 的通道数量失败:`, error)
             device.channelCount = 0
           }
-        })
+        }),
       )
       deviceList.value = devices
     }
@@ -116,7 +116,7 @@ const fetchDeviceChannels = async (device: Device) => {
   try {
     const response = await deviceApi.getDeviceChannels(device.device_id)
     if (response?.data) {
-      channels.value = ((response.data as unknown) as ChannelInfo[])
+      channels.value = response.data as unknown as ChannelInfo[]
     }
   } catch (error) {
     console.error('获取设备通道失败:', error)
@@ -187,12 +187,7 @@ onUnmounted(() => {
       </el-button>
     </div>
 
-    <el-table
-      v-loading="loading"
-      :data="paginatedDevices"
-      border
-      stripe
-    >
+    <el-table v-loading="loading" :data="paginatedDevices" border stripe>
       <template #empty>
         <el-empty :description="searchQuery ? '未找到匹配的设备' : '暂无设备数据'" />
       </template>
@@ -214,9 +209,7 @@ onUnmounted(() => {
       </el-table-column>
       <el-table-column label="操作" width="120" fixed="right">
         <template #default="{ row }">
-          <el-button type="primary" link @click.stop="showDeviceDetails(row)">
-            查看详情
-          </el-button>
+          <el-button type="primary" link @click.stop="showDeviceDetails(row)"> 查看详情 </el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -280,7 +273,12 @@ onUnmounted(() => {
           <el-table v-loading="channelsLoading" :data="channels" border stripe>
             <el-table-column type="index" label="序号" width="60" align="center" />
             <el-table-column prop="name" label="通道名称" min-width="120" show-overflow-tooltip />
-            <el-table-column prop="device_id" label="通道ID" min-width="120" show-overflow-tooltip />
+            <el-table-column
+              prop="device_id"
+              label="通道ID"
+              min-width="120"
+              show-overflow-tooltip
+            />
             <el-table-column prop="manufacturer" label="厂商" min-width="120" />
             <el-table-column prop="status" label="状态" width="100" align="center">
               <template #default="{ row }">

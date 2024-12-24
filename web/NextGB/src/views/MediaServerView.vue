@@ -16,16 +16,22 @@ const mediaServers = ref<ExtendedMediaServer[]>([])
 const rules = {
   name: [
     { required: true, message: '请输入节点名称', trigger: 'blur' },
-    { min: 2, max: 50, message: '长度在 2 到 50 个字符', trigger: 'blur' }
+    { min: 2, max: 50, message: '长度在 2 到 50 个字符', trigger: 'blur' },
   ],
   ip: [
     { required: true, message: '请输入IP地址', trigger: 'blur' },
-    { pattern: /^(\d{1,3}\.){3}\d{1,3}$/, message: '请输入正确的IP地址格式', trigger: 'blur' }
+    { pattern: /^(\d{1,3}\.){3}\d{1,3}$/, message: '请输入正确的IP地址格式', trigger: 'blur' },
   ],
   port: [
     { required: true, message: '请输入端口号', trigger: 'blur' },
-    { type: 'number' as const, min: 1, max: 65535, message: '端口号范围为1-65535', trigger: 'blur' }
-  ]
+    {
+      type: 'number' as const,
+      min: 1,
+      max: 65535,
+      message: '端口号范围为1-65535',
+      trigger: 'blur',
+    },
+  ],
 }
 
 const formRef = ref()
@@ -39,7 +45,7 @@ const newServer = ref<ExtendedMediaServer>({
   streams: 0,
   clients: 0,
   isDefault: false,
-  type: 'SRS'  // 设置默认类型
+  type: 'SRS', // 设置默认类型
 })
 
 const handleAdd = () => {
@@ -54,22 +60,22 @@ const handleAdd = () => {
     streams: 0,
     clients: 0,
     isDefault: false,
-    type: 'SRS'  // 设置默认类型
+    type: 'SRS', // 设置默认类型
   }
 }
 
 const handleDelete = (server: ExtendedMediaServer) => {
   ElMessage.success('删除成功')
-  mediaServers.value = mediaServers.value.filter(s => s.id !== server.id)
+  mediaServers.value = mediaServers.value.filter((s) => s.id !== server.id)
 }
 
 const handleSetDefault = (server: ExtendedMediaServer) => {
   // 先将所有服务器设为非默认
-  mediaServers.value.forEach(s => {
+  mediaServers.value.forEach((s) => {
     s.isDefault = false
   })
   // 将选中的服务器设为默认
-  const targetServer = mediaServers.value.find(s => s.id === server.id)
+  const targetServer = mediaServers.value.find((s) => s.id === server.id)
   if (targetServer) {
     targetServer.isDefault = true
     ElMessage.success('已设为默认节点')
@@ -78,20 +84,20 @@ const handleSetDefault = (server: ExtendedMediaServer) => {
 
 const submitForm = async () => {
   if (!formRef.value) return
-  
+
   try {
     await formRef.value.validate()
-    
+
     // 如果新节点设为默认，先将其他节点设为非默认
     if (newServer.value.isDefault) {
-      mediaServers.value.forEach(s => {
+      mediaServers.value.forEach((s) => {
         s.isDefault = false
       })
     }
-    
+
     mediaServers.value.push({
       ...newServer.value,
-      id: Date.now().toString()
+      id: Date.now().toString(),
     })
     dialogVisible.value = false
     ElMessage.success('添加成功')
@@ -134,29 +140,15 @@ const handleClose = () => {
       :close-on-click-modal="false"
       @close="handleClose"
     >
-      <el-form
-        ref="formRef"
-        :model="newServer"
-        :rules="rules"
-        label-width="100px"
-        status-icon
-      >
+      <el-form ref="formRef" :model="newServer" :rules="rules" label-width="100px" status-icon>
         <el-form-item label="节点名称" prop="name">
-          <el-input 
-            v-model="newServer.name"
-            placeholder="请输入节点名称"
-            clearable
-          />
+          <el-input v-model="newServer.name" placeholder="请输入节点名称" clearable />
         </el-form-item>
-        
+
         <el-form-item label="IP地址" prop="ip">
-          <el-input 
-            v-model="newServer.ip"
-            placeholder="请输入IP地址"
-            clearable
-          />
+          <el-input v-model="newServer.ip" placeholder="请输入IP地址" clearable />
         </el-form-item>
-        
+
         <el-form-item label="端口" prop="port">
           <el-input-number
             v-model="newServer.port"
@@ -174,14 +166,10 @@ const handleClose = () => {
         </el-form-item>
 
         <el-form-item label="设为默认">
-          <el-switch
-            v-model="newServer.isDefault"
-            active-text="是"
-            inactive-text="否"
-          />
+          <el-switch v-model="newServer.isDefault" active-text="是" inactive-text="否" />
         </el-form-item>
       </el-form>
-      
+
       <template #footer>
         <el-button @click="handleClose">取 消</el-button>
         <el-button type="primary" @click="submitForm">确 定</el-button>
