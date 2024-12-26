@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onBeforeUnmount, onMounted } from 'vue'
-import { VideoCamera, Close, Camera, FullScreen, Refresh, Setting } from '@element-plus/icons-vue'
+import { VideoCamera, Close, Camera, FullScreen, Refresh, Setting, Mute, Microphone } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { Device, ChannelInfo } from '@/types/api'
 import { deviceApi } from '@/api'
@@ -12,6 +12,7 @@ interface DeviceWithChannel extends Device {
   error?: boolean
   id?: string
   channel?: ChannelInfo
+  isMuted?: boolean
 }
 
 interface StreamResponse {
@@ -390,6 +391,17 @@ defineExpose({
   addDevice,
   clearAllDevices,
 })
+
+const toggleMute = (index: number) => {
+  const videoElement = document.getElementById(`video-player-${index}`) as HTMLVideoElement
+  if (!videoElement) return
+
+  const device = selectedDevices.value[index]
+  if (!device) return
+
+  device.isMuted = !device.isMuted
+  videoElement.muted = device.isMuted
+}
 </script>
 
 <template>
@@ -435,7 +447,6 @@ defineExpose({
                 :id="'video-player-' + (i - 1)"
                 width="100%"
                 height="100%"
-                controls
                 autoplay
                 @error="handleVideoError(i - 1, $event)"
                 @dblclick="handleVideoDoubleClick(i - 1)"
@@ -453,6 +464,21 @@ defineExpose({
 
             <div class="video-controls">
               <div class="control-bar">
+                <el-button
+                  type="primary"
+                  class="control-btn"
+                  @click="toggleMute(i - 1)"
+                  :style="{
+                    width: getControlSize(i - 1).btnSize + 'px',
+                    height: getControlSize(i - 1).btnSize + 'px',
+                    fontSize: getControlSize(i - 1).iconSize + 'px',
+                  }"
+                  :title="selectedDevices[i - 1].isMuted ? '取消静音' : '静音'"
+                >
+                  <el-icon>
+                    <component :is="selectedDevices[i - 1].isMuted ? 'Mute' : 'Microphone'" />
+                  </el-icon>
+                </el-button>
                 <el-button
                   type="primary"
                   class="control-btn"
