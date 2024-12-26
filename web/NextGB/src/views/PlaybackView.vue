@@ -3,14 +3,17 @@ import { ref, computed } from 'vue'
 import DeviceTree from '@/components/monitor/DeviceTree.vue'
 import VideoPlayer from '@/components/playback/VideoPlayer.vue'
 import type { Device, ChannelInfo } from '@/types/api'
-import { VideoPlay, VideoPause, VideoCamera, Download, Microphone } from '@element-plus/icons-vue'
+import { VideoPlay, VideoPause, VideoCamera, Download, Microphone, ArrowRight, Search } from '@element-plus/icons-vue'
 
 const showBanner = ref(false)
 const currentDevice = ref<Device>()
 const currentChannel = ref<ChannelInfo>()
-const selectedDate = ref<Date>()
+const startDateTime = ref<Date>()
+const endDateTime = ref<Date>()
 const videoPlayerRef = ref()
 const volume = ref(100)
+const isSearchPanelCollapsed = ref(false)
+const isCalendarExpanded = ref(false)
 
 const isPlaying = computed(() => videoPlayerRef.value?.isPlaying || false)
 
@@ -29,8 +32,39 @@ const handleDeviceSelect = (data: { device: Device | undefined; channel: Channel
 }
 
 const handleSearch = () => {
-  if (!currentChannel.value || !selectedDate.value) return
+  if (!startDateTime.value || !endDateTime.value) return
   // TODO: 实现录像查询逻辑
+  console.log('查询时间范围：', {
+    start: startDateTime.value,
+    end: endDateTime.value,
+    channel: currentChannel.value
+  })
+}
+
+const handleShortcut = (type: string) => {
+  const now = new Date()
+  const start = new Date()
+  
+  switch (type) {
+    case 'today':
+      start.setHours(0, 0, 0, 0)
+      startDateTime.value = start
+      endDateTime.value = now
+      break
+    case 'yesterday':
+      start.setDate(start.getDate() - 1)
+      start.setHours(0, 0, 0, 0)
+      const end = new Date(start)
+      end.setHours(23, 59, 59, 999)
+      startDateTime.value = start
+      endDateTime.value = end
+      break
+    case 'lastWeek':
+      start.setDate(start.getDate() - 7)
+      startDateTime.value = start
+      endDateTime.value = now
+      break
+  }
 }
 </script>
 
@@ -38,6 +72,83 @@ const handleSearch = () => {
   <div class="playback-container">
     <div class="left-panel">
       <DeviceTree @select="handleDeviceSelect" />
+      <div class="search-panel" :class="{ collapsed: isSearchPanelCollapsed }">
+        <div class="search-panel-header" @click="isSearchPanelCollapsed = !isSearchPanelCollapsed">
+          <div class="header-title">
+            <el-icon class="collapse-arrow" :class="{ collapsed: isSearchPanelCollapsed }">
+              <ArrowRight />
+            </el-icon>
+            <el-icon class="title-icon"><VideoCamera /></el-icon>
+            <span>录像查询</span>
+          </div>
+        </div>
+        <div class="search-panel-content">
+          <div class="search-form">
+            <div class="form-item calendar-wrapper">
+              <div class="datetime-range">
+                <div class="datetime-item">
+                  <div class="datetime-label">开始时间：</div>
+                  <el-date-picker
+                    v-model="startDateTime"
+                    type="datetime"
+                    :editable="false"
+                    placeholder="开始时间"
+                    format="YYYY-MM-DD HH:mm"
+                    value-format="YYYY-MM-DD HH:mm:ss"
+                    style="width: 100%"
+                  />
+                </div>
+                <div class="datetime-item">
+                  <div class="datetime-label">结束时间：</div>
+                  <el-date-picker
+                    v-model="endDateTime"
+                    type="datetime"
+                    :editable="false"
+                    placeholder="结束时间"
+                    format="YYYY-MM-DD HH:mm"
+                    value-format="YYYY-MM-DD HH:mm:ss"
+                    style="width: 100%"
+                  />
+                </div>
+              </div>
+              <div class="shortcuts">
+                <el-button
+                  text
+                  size="small"
+                  @click="handleShortcut('today')"
+                >
+                  今天
+                </el-button>
+                <el-button
+                  text
+                  size="small"
+                  @click="handleShortcut('yesterday')"
+                >
+                  昨天
+                </el-button>
+                <el-button
+                  text
+                  size="small"
+                  @click="handleShortcut('lastWeek')"
+                >
+                  最近一周
+                </el-button>
+              </div>
+            </div>
+            <template v-if="!isSearchPanelCollapsed">
+              <el-button
+                type="primary"
+                :disabled="!startDateTime || !endDateTime"
+                @click="handleSearch"
+                style="width: 100%"
+              >
+                <el-icon><Search /></el-icon>
+                查询录像
+              </el-button>
+            </template>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="right-panel">
       <div class="playback-panel">
@@ -62,7 +173,7 @@ const handleSearch = () => {
                 <span class="value">1920×1080</span>
               </div>
               <div class="info-item">
-                <span class="label">帧率：</span>
+                <span class="label">��率：</span>
                 <span class="value">25fps</span>
               </div>
             </div>
@@ -108,23 +219,6 @@ const handleSearch = () => {
               </template>
             </el-slider>
           </div>
-          <div class="date-picker">
-            <el-date-picker
-              v-model="selectedDate"
-              type="date"
-              placeholder="选择日期"
-              :disabled="!currentChannel"
-              size="small"
-            />
-            <el-button
-              type="primary"
-              size="small"
-              :disabled="!currentChannel || !selectedDate"
-              @click="handleSearch"
-            >
-              查询
-            </el-button>
-          </div>
         </div>
       </div>
     </div>
@@ -141,6 +235,9 @@ const handleSearch = () => {
 .left-panel {
   width: 280px;
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .right-panel {
@@ -182,10 +279,10 @@ const handleSearch = () => {
 }
 
 .control-panel {
-  height: 100px;
+  height: 60px;
   background-color: #1a1a1a;
   display: flex;
-  flex-direction: column;
+  align-items: center;
 }
 
 .control-buttons {
@@ -240,33 +337,129 @@ const handleSearch = () => {
   }
 }
 
-.date-picker {
-  height: 40px;
+.search-panel {
+  background-color: var(--el-bg-color);
+  border-radius: var(--el-border-radius-base);
+  box-shadow: var(--el-box-shadow-lighter);
+}
+
+.search-panel-header {
+  padding: 8px 12px;
   display: flex;
   align-items: center;
-  justify-content: center;
-  background-color: #242424;
-  padding: 0 16px;
-  gap: 16px;
-
-  :deep(.el-date-editor) {
-    --el-input-bg-color: transparent;
-    --el-input-border-color: rgba(255, 255, 255, 0.2);
-    --el-input-hover-border-color: rgba(255, 255, 255, 0.3);
-    --el-input-text-color: #fff;
-    --el-input-placeholder-color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  user-select: none;
+  
+  &:hover {
+    background-color: var(--el-fill-color-light);
   }
+}
 
+.header-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--el-text-color-primary);
+}
+
+.collapse-arrow {
+  font-size: 12px;
+  transition: transform 0.2s ease;
+  color: var(--el-text-color-secondary);
+  
+  &.collapsed {
+    transform: rotate(-90deg);
+  }
+}
+
+.title-icon {
+  font-size: 14px;
+  color: var(--el-color-primary);
+}
+
+.search-panel-content {
+  transition: all 0.2s ease;
+  overflow: hidden;
+}
+
+.search-panel.collapsed .search-panel-content {
+  height: 0;
+  padding: 0;
+  opacity: 0;
+}
+
+.datetime-range {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.datetime-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.datetime-label {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  padding-left: 4px;
+}
+
+.datetime-separator {
+  display: none;
+}
+
+.shortcuts {
+  display: flex;
+  gap: 8px;
+  padding: 0 4px;
+  
   :deep(.el-button) {
-    --el-button-bg-color: var(--el-color-primary);
-    --el-button-border-color: var(--el-color-primary);
-    --el-button-hover-bg-color: var(--el-color-primary-light-3);
-    --el-button-hover-border-color: var(--el-color-primary-light-3);
-    --el-button-active-bg-color: var(--el-color-primary-dark-2);
-    --el-button-active-border-color: var(--el-color-primary-dark-2);
-    --el-button-disabled-bg-color: var(--el-color-primary-light-5);
-    --el-button-disabled-border-color: var(--el-color-primary-light-5);
+    height: 24px;
+    padding: 0 8px;
+    
+    &.is-disabled {
+      color: var(--el-text-color-disabled);
+    }
   }
+}
+
+.calendar-wrapper {
+  :deep(.el-input__wrapper) {
+    padding: 0 8px;
+    height: 32px;
+  }
+  
+  :deep(.el-input__inner) {
+    font-size: 13px;
+  }
+  
+  :deep(.el-date-editor) {
+    --el-date-editor-width: 100%;
+  }
+}
+
+.search-form {
+  padding: 12px;
+}
+
+:deep(.el-picker-panel) {
+  --el-datepicker-border-color: var(--el-border-color-lighter);
+}
+
+.form-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-label {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  padding-left: 4px;
 }
 
 .video-banner {
