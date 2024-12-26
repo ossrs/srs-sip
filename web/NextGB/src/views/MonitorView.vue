@@ -6,8 +6,13 @@ import MonitorGrid from '@/components/monitor/MonitorGrid.vue'
 import type { Device, ChannelInfo } from '@/types/api'
 
 const monitorGridRef = ref()
+const selectedChannel = ref<{ device: Device | undefined; channel: ChannelInfo } | null>(null)
 
 const handleDeviceSelect = (data: { device: Device | undefined; channel: ChannelInfo }) => {
+  selectedChannel.value = data
+}
+
+const handleDevicePlay = (data: { device: Device | undefined; channel: ChannelInfo }) => {
   if (data.channel.device_id) {
     monitorGridRef.value?.addDevice({
       ...data.device,
@@ -23,7 +28,10 @@ const handleDeviceSelect = (data: { device: Device | undefined; channel: Channel
   <div class="monitor-view">
     <div class="monitor-layout">
       <div class="device-tree-container">
-        <DeviceTree @select="handleDeviceSelect" />
+        <DeviceTree 
+          @select="handleDeviceSelect"
+          @play="handleDevicePlay"
+        />
       </div>
       <div class="monitor-grid-container">
         <MonitorGrid ref="monitorGridRef" />

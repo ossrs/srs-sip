@@ -62,6 +62,11 @@ const fetchDevices = async () => {
   }
 }
 
+const emit = defineEmits<{
+  (e: 'select', data: { device: Device | undefined; channel: ChannelInfo }): void
+  (e: 'play', data: { device: Device | undefined; channel: ChannelInfo }): void
+}>()
+
 const handleSelect = (data: DeviceNode) => {
   if (data.isChannel && data.channelInfo) {
     emit('select', {
@@ -71,9 +76,14 @@ const handleSelect = (data: DeviceNode) => {
   }
 }
 
-const emit = defineEmits<{
-  (e: 'select', data: { device: Device | undefined; channel: ChannelInfo }): void
-}>()
+const handleNodeDbClick = (data: DeviceNode) => {
+  if (data.isChannel && data.channelInfo) {
+    emit('play', {
+      device: devices.value.find((d) => d.device_id === data.channelInfo?.parent_id),
+      channel: data.channelInfo,
+    })
+  }
+}
 
 const filteredData = computed(() => {
   if (!searchQuery.value.trim()) {
@@ -82,7 +92,7 @@ const filteredData = computed(() => {
   }
 
   const query = searchQuery.value.trim().toLowerCase()
-  expandedKeys.value = ['root'] // 添加根节点，确保"所有设���"始终展开
+  expandedKeys.value = ['root'] // 添加根节点，确保"所有设备"始终展开
 
   const filteredNodes = deviceNodes.value.filter((node) => {
     // 递归搜索设备和通道
@@ -172,7 +182,7 @@ onMounted(() => {
       :expanded-keys="expandedKeys"
     >
       <template #default="{ node, data }">
-        <span class="custom-tree-node">
+        <span class="custom-tree-node" @dblclick.stop="handleNodeDbClick(data)">
           <span :class="data.isChannel ? 'channel-label' : 'device-label'">
             {{ data.label }}
           </span>
@@ -288,6 +298,7 @@ onMounted(() => {
   gap: 8px;
   width: 100%;
   padding: 0 4px;
+  user-select: none;
 
   .device-label {
     font-weight: 500;
@@ -302,5 +313,9 @@ onMounted(() => {
   .el-tag {
     margin-left: auto;
   }
+}
+
+:deep(.el-tree-node__content) {
+  user-select: none;
 }
 </style>
