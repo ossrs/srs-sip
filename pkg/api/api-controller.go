@@ -23,6 +23,8 @@ func (h *HttpApiServer) RegisterRoutes(router *mux.Router) {
 	apiV1Router.HandleFunc("/bye", h.ApiBye).Methods(http.MethodPost)
 	apiV1Router.HandleFunc("/ptz", h.ApiPTZControl).Methods(http.MethodPost)
 
+	apiV1Router.HandleFunc("/media-server", h.ApiGetMediaServer).Methods(http.MethodGet)
+
 	apiV1Router.HandleFunc("", h.GetAPIRoutes(apiV1Router)).Methods(http.MethodGet)
 
 	router.HandleFunc("/srs-sip", h.ApiGetAPIVersion).Methods(http.MethodGet)
@@ -134,4 +136,11 @@ func (h *HttpApiServer) ApiBye(w http.ResponseWriter, r *http.Request) {
 
 func (h *HttpApiServer) ApiPTZControl(w http.ResponseWriter, r *http.Request) {
 	h.RespondWithJSONSimple(w, `{"msg":"Not implemented"}`)
+}
+
+func (h *HttpApiServer) ApiGetMediaServer(w http.ResponseWriter, r *http.Request) {
+	h.RespondWithJSON(w, 0, map[string]string{
+		"type":    "srs",
+		"address": h.conf.MediaAddr,
+	})
 }
