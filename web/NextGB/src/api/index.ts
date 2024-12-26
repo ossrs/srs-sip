@@ -10,6 +10,62 @@ const api = axios.create({
   },
 })
 
+// 定义 summaries 响应类型
+interface SRSSummaries {
+  code: number
+  server: {
+    id: string
+    pid: number
+    argv: string
+    cwd: string
+    srs_version: string
+    version: number
+    peers: number
+    now_ms: number
+  }
+  system: {
+    cpu_percent: number
+    disk_read_KBps: number
+    disk_write_KBps: number
+    mem_percent: number
+    mem_ram_KBytes: number
+    mem_swap_KBytes: number
+    net_recv_bytes: number
+    net_send_bytes: number
+    srs_cpu_percent: number
+    srs_mem_percent: number
+    uptime_seconds: number
+  }
+}
+
+// 定义 versions 响应类型
+interface SRSVersions {
+  code: number
+  server: string
+  service: string
+  pid: string
+  data: {
+    major: number
+    minor: number
+    revision: number
+    version: string
+  }
+}
+
+// 服务器相关 API
+export const serverApi = {
+  // 获取媒体服务器信息
+  getMediaServer: () => api.get<ApiResponse<{ type: string; address: string }>>('/srs-sip/v1/media-server'),
+  
+  // 检查服务器状态
+  checkStatus: (address: string) => 
+    api.get<SRSVersions>(`http://${address}/api/v1/versions`),
+    
+  // 获取服务器详细信息
+  getSummaries: (address: string) =>
+    api.get<SRSSummaries>(`http://${address}/api/v1/summaries`),
+}
+
 // 设备相关 API
 export const deviceApi = {
   // 获取设备列表
