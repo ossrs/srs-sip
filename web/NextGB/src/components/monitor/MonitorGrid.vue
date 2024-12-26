@@ -29,7 +29,7 @@ const layouts = {
 }
 
 // 状态管理
-const selectedDevices = ref<DeviceWithChannel[]>([])
+const selectedDevices = ref<(DeviceWithChannel | null)[]>([])
 const currentLayout = ref<keyof typeof layouts>('9')
 const isFullscreen = ref(false)
 const showSettings = ref(false)
@@ -107,25 +107,36 @@ const cleanupDevice = async (device: DeviceWithChannel) => {
 }
 
 const addDevice = async (device: Device & { channel: ChannelInfo }) => {
-  if (selectedDevices.value.length < maxDevices.value) {
-    try {
-      const deviceWithChannel: DeviceWithChannel = {
-        ...device,
-        channelInfo: device.channel,
-        channel: device.channel,
-        error: false,
-      }
-      selectedDevices.value.push(deviceWithChannel)
-      const index = selectedDevices.value.length - 1
-
-      await startStream(deviceWithChannel, index)
-      saveLayoutState()
-    } catch (error) {
-      console.error('添加设备失败:', error)
-      ElMessage.error('添加设备失败')
+  // 找到第一个空位置
+  let index = selectedDevices.value.findIndex(d => d === null);
+  if (index === -1) {
+    // 如果没有空位置，则添加到末尾
+    if (selectedDevices.value.length >= maxDevices.value) {
+      ElMessage.warning('已达到最大分屏数量')
+      return
     }
-  } else {
-    ElMessage.warning('已达到最大分屏数量')
+    index = selectedDevices.value.length
+  }
+
+  try {
+    const deviceWithChannel: DeviceWithChannel = {
+      ...device,
+      channelInfo: device.channel,
+      channel: device.channel,
+      error: false,
+    }
+    
+    // 确保数组长度足够
+    while (selectedDevices.value.length <= index) {
+      selectedDevices.value.push(null)
+    }
+    
+    selectedDevices.value[index] = deviceWithChannel
+    await startStream(deviceWithChannel, index)
+    saveLayoutState()
+  } catch (error) {
+    console.error('添加设备失败:', error)
+    ElMessage.error('添加设备失败')
   }
 }
 
@@ -143,7 +154,8 @@ const removeDevice = async (index: number) => {
     videoElement.srcObject = null
   }
 
-  selectedDevices.value.splice(index, 1)
+  // 将位置设为 null 而不是删除
+  selectedDevices.value[index] = null
   saveLayoutState()
 }
 
@@ -179,10 +191,13 @@ const saveLayoutState = () => {
       'monitorGridLayout',
       JSON.stringify({
         layout: currentLayout.value,
-        devices: selectedDevices.value.map((d) => ({
-          name: d.name,
-          channelInfo: d.channelInfo,
-        })),
+        devices: selectedDevices.value
+          .map((d, index) => d ? {
+            name: d.name,
+            channelInfo: d.channelInfo,
+            index: index // 保存位置信息
+          } : null)
+          .filter(d => d !== null) // 只保存非空设备
       }),
     )
   } catch (err) {
@@ -196,9 +211,17 @@ const restoreLayoutState = async () => {
     if (savedState) {
       const { layout, devices } = JSON.parse(savedState)
       currentLayout.value = layout
+      
+      // 初始化数组大小
+      selectedDevices.value = new Array(layouts[layout].size).fill(null)
+      
+      // 恢复设备到原来的位置
       for (const device of devices) {
-        if (device.channelInfo) {
-          await addDevice({ ...device, channel: device.channelInfo })
+        if (device?.channelInfo) {
+          const index = device.index
+          if (index < layouts[layout].size) {
+            await addDevice({ ...device, channel: device.channelInfo })
+          }
         }
       }
     }
@@ -315,9 +338,14 @@ const clearAllDevices = async () => {
       type: 'warning',
     })
 
-    while (selectedDevices.value.length > 0) {
-      await removeDevice(0)
+    for (let i = 0; i < selectedDevices.value.length; i++) {
+      if (selectedDevices.value[i]) {
+        await removeDevice(i)
+      }
     }
+    
+    // 用 null 填充数组而不是清空
+    selectedDevices.value = new Array(layouts[currentLayout.value].size).fill(null)
 
     ElMessage.success('已清空所有设备')
   } catch (err) {
@@ -331,10 +359,12 @@ const clearAllDevices = async () => {
 // 布局切换处理
 watch(currentLayout, async (newLayout, oldLayout) => {
   const maxSize = layouts[newLayout].size
-  if (selectedDevices.value.length > maxSize) {
+  const activeDevices = selectedDevices.value.filter(d => d !== null).length
+  
+  if (activeDevices > maxSize) {
     try {
       await ElMessageBox.confirm(
-        `切换布局将移除${selectedDevices.value.length - maxSize}个设备，是否继续？`,
+        `切换布局将移除${activeDevices - maxSize}个设备，是否继续？`,
         '提示',
         {
           confirmButtonText: '确定',
@@ -343,13 +373,16 @@ watch(currentLayout, async (newLayout, oldLayout) => {
         },
       )
 
-      const devicesToRemove = selectedDevices.value.slice(maxSize)
-      for (const device of devicesToRemove) {
-        const index = selectedDevices.value.indexOf(device)
-        if (index !== -1) {
-          await removeDevice(index)
+      // 从后往前移除超出设备
+      for (let i = selectedDevices.value.length - 1; i >= 0; i--) {
+        if (selectedDevices.value[i] && i >= maxSize) {
+          await removeDevice(i)
         }
       }
+      
+      // 调整数组大小
+      selectedDevices.value.length = maxSize
+      
       ElMessage.success('布局切换成功')
     } catch (err) {
       if (err !== 'cancel') {
@@ -358,12 +391,26 @@ watch(currentLayout, async (newLayout, oldLayout) => {
       }
       currentLayout.value = oldLayout
     }
+  } else {
+    // 如果设备数量不超过新布局，只需调整数组大小
+    if (selectedDevices.value.length > maxSize) {
+      selectedDevices.value.length = maxSize
+    } else {
+      while (selectedDevices.value.length < maxSize) {
+        selectedDevices.value.push(null)
+      }
+    }
   }
   saveLayoutState()
 })
 
 // 生命周期钩子
 onMounted(async () => {
+  // 确保有初始网格
+  if (selectedDevices.value.length === 0) {
+    selectedDevices.value = new Array(layouts[currentLayout.value].size).fill(null)
+  }
+  
   await restoreLayoutState()
 
   document.addEventListener('fullscreenchange', () => {
@@ -441,7 +488,7 @@ const toggleMute = (index: number) => {
     <div class="grid-container" :class="{ 'is-fullscreen': isFullscreen }" :style="gridStyle">
       <div v-for="i in maxDevices" :key="i" class="grid-item">
         <template v-if="selectedDevices[i - 1]">
-          <div class="video-container" :class="{ 'has-error': selectedDevices[i - 1].error }">
+          <div class="video-container" :class="{ 'has-error': selectedDevices[i - 1]?.error }">
             <div class="video-placeholder">
               <video
                 :id="'video-player-' + (i - 1)"
@@ -453,7 +500,7 @@ const toggleMute = (index: number) => {
               ></video>
 
               <!-- 错误状态 -->
-              <div v-if="selectedDevices[i - 1].error" class="error-overlay">
+              <div v-if="selectedDevices[i - 1]?.error" class="error-overlay">
                 <span>播放失败</span>
                 <el-button type="primary" size="small" @click="retryStream(i - 1)">
                   <el-icon><Refresh /></el-icon>
@@ -473,10 +520,10 @@ const toggleMute = (index: number) => {
                     height: getControlSize(i - 1).btnSize + 'px',
                     fontSize: getControlSize(i - 1).iconSize + 'px',
                   }"
-                  :title="selectedDevices[i - 1].isMuted ? '取消静音' : '静音'"
+                  :title="selectedDevices[i - 1]?.isMuted ? '取消静音' : '静音'"
                 >
                   <el-icon>
-                    <component :is="selectedDevices[i - 1].isMuted ? 'Mute' : 'Microphone'" />
+                    <component :is="selectedDevices[i - 1]?.isMuted ? 'Mute' : 'Microphone'" />
                   </el-icon>
                 </el-button>
                 <el-button
@@ -488,7 +535,7 @@ const toggleMute = (index: number) => {
                     height: getControlSize(i - 1).btnSize + 'px',
                     fontSize: getControlSize(i - 1).iconSize + 'px',
                   }"
-                  :disabled="selectedDevices[i - 1].error"
+                  :disabled="selectedDevices[i - 1]?.error"
                   :title="'抓图'"
                 >
                   <el-icon><Camera /></el-icon>
