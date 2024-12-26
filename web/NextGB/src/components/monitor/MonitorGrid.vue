@@ -33,11 +33,9 @@ const selectedDevices = ref<(DeviceWithChannel | null)[]>([])
 const currentLayout = ref<keyof typeof layouts>('9')
 const isFullscreen = ref(false)
 const showSettings = ref(false)
-const autoReconnectEnabled = ref(true)
-const reconnectInterval = ref(10)
-let reconnectTimers: number[] = []
+const defaultMuted = ref(true)
 
-// 计算属性
+// 计��属性
 const gridStyle = computed(() => {
   const layout = layouts[currentLayout.value]
   return {
@@ -107,10 +105,8 @@ const cleanupDevice = async (device: DeviceWithChannel) => {
 }
 
 const addDevice = async (device: Device & { channel: ChannelInfo }) => {
-  // 找到第一个空位置
   let index = selectedDevices.value.findIndex(d => d === null);
   if (index === -1) {
-    // 如果没有空位置，则添加到末尾
     if (selectedDevices.value.length >= maxDevices.value) {
       ElMessage.warning('已达到最大分屏数量')
       return
@@ -124,15 +120,21 @@ const addDevice = async (device: Device & { channel: ChannelInfo }) => {
       channelInfo: device.channel,
       channel: device.channel,
       error: false,
+      isMuted: defaultMuted.value
     }
     
-    // 确保数组长度足够
     while (selectedDevices.value.length <= index) {
       selectedDevices.value.push(null)
     }
     
     selectedDevices.value[index] = deviceWithChannel
     await startStream(deviceWithChannel, index)
+    
+    const videoElement = document.getElementById(`video-player-${index}`) as HTMLVideoElement
+    if (videoElement) {
+      videoElement.muted = defaultMuted.value
+    }
+    
     saveLayoutState()
   } catch (error) {
     console.error('添加设备失败:', error)
@@ -144,7 +146,6 @@ const removeDevice = async (index: number) => {
   const device = selectedDevices.value[index]
   if (!device) return
 
-  stopAutoReconnect(index)
   await cleanupDevice(device)
 
   const videoElement = document.getElementById(`video-player-${index}`) as HTMLVideoElement
@@ -157,31 +158,6 @@ const removeDevice = async (index: number) => {
   // 将位置设为 null 而不是删除
   selectedDevices.value[index] = null
   saveLayoutState()
-}
-
-// 自动重连管理
-const stopAutoReconnect = (index: number) => {
-  if (reconnectTimers[index]) {
-    clearInterval(reconnectTimers[index])
-    delete reconnectTimers[index]
-  }
-}
-
-const startAutoReconnect = (index: number) => {
-  if (!autoReconnectEnabled.value) return
-  stopAutoReconnect(index)
-
-  const timer = window.setInterval(async () => {
-    const device = selectedDevices.value[index]
-    if (device?.error) {
-      console.log(`尝试重连设备: ${device.name}`)
-      await retryStream(index)
-    } else {
-      stopAutoReconnect(index)
-    }
-  }, reconnectInterval.value * 1000)
-
-  reconnectTimers[index] = timer
 }
 
 // 布局状态管理
@@ -252,9 +228,6 @@ const handleVideoError = (index: number, event: Event) => {
   const device = selectedDevices.value[index]
   if (device) {
     device.error = true
-    if (autoReconnectEnabled.value) {
-      startAutoReconnect(index)
-    }
   }
 }
 
@@ -347,7 +320,7 @@ const clearAllDevices = async () => {
     // 用 null 填充数组而不是清空
     selectedDevices.value = new Array(layouts[currentLayout.value].size).fill(null)
 
-    ElMessage.success('已清空所有设备')
+    ElMessage.success('已清空所有设��')
   } catch (err) {
     if (err !== 'cancel') {
       console.error('清空设备失败:', err)
@@ -419,12 +392,8 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
-  reconnectTimers.forEach((timer) => {
-    if (timer) clearInterval(timer)
-  })
-
   selectedDevices.value.forEach((device) => {
-    if (device.player) {
+    if (device?.player) {
       try {
         device.player.close()
       } catch (err) {
@@ -567,23 +536,14 @@ const toggleMute = (index: number) => {
     <!-- 设置对话框 -->
     <el-dialog v-model="showSettings" title="设置" width="400px" destroy-on-close>
       <el-form label-width="120px">
-        <el-form-item label="自动重连">
-          <el-switch v-model="autoReconnectEnabled" />
-        </el-form-item>
-        <el-form-item label="重连间隔(秒)">
-          <el-input-number
-            v-model="reconnectInterval"
-            :min="5"
-            :max="60"
-            :step="5"
-            :disabled="!autoReconnectEnabled"
-          />
+        <el-form-item label="默认静音">
+          <el-switch v-model="defaultMuted" />
         </el-form-item>
       </el-form>
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="showSettings = false">取消</el-button>
-          <el-button type="primary" @click="showSettings = false"> 确定 </el-button>
+          <el-button type="primary" @click="showSettings = false">确定</el-button>
         </span>
       </template>
     </el-dialog>
