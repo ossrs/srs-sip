@@ -752,7 +752,7 @@ defineExpose({
 }
 
 .video-container:hover video {
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .device-info {
