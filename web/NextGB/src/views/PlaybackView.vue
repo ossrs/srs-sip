@@ -8,12 +8,11 @@ import { VideoPlay, VideoPause, VideoCamera, Download, Microphone, ArrowRight, S
 const showBanner = ref(false)
 const currentDevice = ref<Device>()
 const currentChannel = ref<ChannelInfo>()
-const startDateTime = ref<Date>()
-const endDateTime = ref<Date>()
+const startDateTime = ref('')
+const endDateTime = ref('')
 const videoPlayerRef = ref()
 const volume = ref(100)
 const isSearchPanelCollapsed = ref(false)
-const isCalendarExpanded = ref(false)
 
 const isPlaying = computed(() => videoPlayerRef.value?.isPlaying || false)
 
@@ -31,14 +30,14 @@ const handleDeviceSelect = (data: { device: Device | undefined; channel: Channel
   videoPlayerRef.value?.pause()
 }
 
-const handleSearch = () => {
-  if (!startDateTime.value || !endDateTime.value) return
-  // TODO: 实现录像查询逻辑
-  console.log('查询时间范围：', {
-    start: startDateTime.value,
-    end: endDateTime.value,
-    channel: currentChannel.value
-  })
+const formatDateTime = (date: Date) => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  const seconds = String(date.getSeconds()).padStart(2, '0')
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
 }
 
 const handleShortcut = (type: string) => {
@@ -46,25 +45,35 @@ const handleShortcut = (type: string) => {
   const start = new Date()
   
   switch (type) {
-    case 'today':
+    case 'today': {
       start.setHours(0, 0, 0, 0)
-      startDateTime.value = start
-      endDateTime.value = now
       break
-    case 'yesterday':
+    }
+    case 'yesterday': {
       start.setDate(start.getDate() - 1)
       start.setHours(0, 0, 0, 0)
-      const end = new Date(start)
-      end.setHours(23, 59, 59, 999)
-      startDateTime.value = start
-      endDateTime.value = end
+      now.setDate(now.getDate() - 1)
       break
-    case 'lastWeek':
+    }
+    case 'lastWeek': {
       start.setDate(start.getDate() - 7)
-      startDateTime.value = start
-      endDateTime.value = now
+      start.setHours(0, 0, 0, 0)
       break
+    }
   }
+  
+  startDateTime.value = formatDateTime(start)
+  now.setHours(23, 59, 59)
+  endDateTime.value = formatDateTime(now)
+}
+
+const handleSearch = () => {
+  if (!startDateTime.value || !endDateTime.value) return
+  console.log('查询时间范围：', {
+    start: startDateTime.value,
+    end: endDateTime.value,
+    channel: currentChannel.value
+  })
 }
 </script>
 
@@ -93,7 +102,6 @@ const handleShortcut = (type: string) => {
                     type="datetime"
                     :editable="false"
                     placeholder="开始时间"
-                    format="YYYY-MM-DD HH:mm"
                     value-format="YYYY-MM-DD HH:mm:ss"
                     style="width: 100%"
                   />
@@ -105,7 +113,6 @@ const handleShortcut = (type: string) => {
                     type="datetime"
                     :editable="false"
                     placeholder="结束时间"
-                    format="YYYY-MM-DD HH:mm"
                     value-format="YYYY-MM-DD HH:mm:ss"
                     style="width: 100%"
                   />
@@ -173,7 +180,7 @@ const handleShortcut = (type: string) => {
                 <span class="value">1920×1080</span>
               </div>
               <div class="info-item">
-                <span class="label">��率：</span>
+                <span class="label">帧率：</span>
                 <span class="value">25fps</span>
               </div>
             </div>
@@ -408,10 +415,6 @@ const handleShortcut = (type: string) => {
   padding-left: 4px;
 }
 
-.datetime-separator {
-  display: none;
-}
-
 .shortcuts {
   display: flex;
   gap: 8px;
@@ -448,18 +451,6 @@ const handleShortcut = (type: string) => {
 
 :deep(.el-picker-panel) {
   --el-datepicker-border-color: var(--el-border-color-lighter);
-}
-
-.form-item {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.form-label {
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
-  padding-left: 4px;
 }
 
 .video-banner {
