@@ -2,17 +2,15 @@
 import { ref, computed } from 'vue'
 import DeviceTree from '@/components/monitor/DeviceTree.vue'
 import VideoPlayer from '@/components/playback/VideoPlayer.vue'
+import DateTimeRangePanel from '@/components/common/DateTimeRangePanel.vue'
 import type { Device, ChannelInfo } from '@/types/api'
-import { VideoPlay, VideoPause, VideoCamera, Download, Microphone, ArrowRight, Search } from '@element-plus/icons-vue'
+import { VideoPlay, VideoPause, VideoCamera, Download, Microphone } from '@element-plus/icons-vue'
 
 const showBanner = ref(false)
 const currentDevice = ref<Device>()
 const currentChannel = ref<ChannelInfo>()
-const startDateTime = ref('')
-const endDateTime = ref('')
 const videoPlayerRef = ref()
 const volume = ref(100)
-const isSearchPanelCollapsed = ref(false)
 
 const isPlaying = computed(() => videoPlayerRef.value?.isPlaying || false)
 
@@ -30,48 +28,10 @@ const handleDeviceSelect = (data: { device: Device | undefined; channel: Channel
   videoPlayerRef.value?.pause()
 }
 
-const formatDateTime = (date: Date) => {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  const hours = String(date.getHours()).padStart(2, '0')
-  const minutes = String(date.getMinutes()).padStart(2, '0')
-  const seconds = String(date.getSeconds()).padStart(2, '0')
-  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
-}
-
-const handleShortcut = (type: string) => {
-  const now = new Date()
-  const start = new Date()
-  
-  switch (type) {
-    case 'today': {
-      start.setHours(0, 0, 0, 0)
-      break
-    }
-    case 'yesterday': {
-      start.setDate(start.getDate() - 1)
-      start.setHours(0, 0, 0, 0)
-      now.setDate(now.getDate() - 1)
-      break
-    }
-    case 'lastWeek': {
-      start.setDate(start.getDate() - 7)
-      start.setHours(0, 0, 0, 0)
-      break
-    }
-  }
-  
-  startDateTime.value = formatDateTime(start)
-  now.setHours(23, 59, 59)
-  endDateTime.value = formatDateTime(now)
-}
-
-const handleSearch = () => {
-  if (!startDateTime.value || !endDateTime.value) return
+const handleSearch = ({ start, end }: { start: string; end: string }) => {
   console.log('查询时间范围：', {
-    start: startDateTime.value,
-    end: endDateTime.value,
+    start,
+    end,
     channel: currentChannel.value
   })
 }
@@ -81,81 +41,10 @@ const handleSearch = () => {
   <div class="playback-container">
     <div class="left-panel">
       <DeviceTree @select="handleDeviceSelect" />
-      <div class="search-panel" :class="{ collapsed: isSearchPanelCollapsed }">
-        <div class="search-panel-header" @click="isSearchPanelCollapsed = !isSearchPanelCollapsed">
-          <div class="header-title">
-            <el-icon class="collapse-arrow" :class="{ collapsed: isSearchPanelCollapsed }">
-              <ArrowRight />
-            </el-icon>
-            <el-icon class="title-icon"><VideoCamera /></el-icon>
-            <span>录像查询</span>
-          </div>
-        </div>
-        <div class="search-panel-content">
-          <div class="search-form">
-            <div class="form-item calendar-wrapper">
-              <div class="datetime-range">
-                <div class="datetime-item">
-                  <div class="datetime-label">开始时间：</div>
-                  <el-date-picker
-                    v-model="startDateTime"
-                    type="datetime"
-                    :editable="false"
-                    placeholder="开始时间"
-                    value-format="YYYY-MM-DD HH:mm:ss"
-                    style="width: 100%"
-                  />
-                </div>
-                <div class="datetime-item">
-                  <div class="datetime-label">结束时间：</div>
-                  <el-date-picker
-                    v-model="endDateTime"
-                    type="datetime"
-                    :editable="false"
-                    placeholder="结束时间"
-                    value-format="YYYY-MM-DD HH:mm:ss"
-                    style="width: 100%"
-                  />
-                </div>
-              </div>
-              <div class="shortcuts">
-                <el-button
-                  text
-                  size="small"
-                  @click="handleShortcut('today')"
-                >
-                  今天
-                </el-button>
-                <el-button
-                  text
-                  size="small"
-                  @click="handleShortcut('yesterday')"
-                >
-                  昨天
-                </el-button>
-                <el-button
-                  text
-                  size="small"
-                  @click="handleShortcut('lastWeek')"
-                >
-                  最近一周
-                </el-button>
-              </div>
-            </div>
-            <template v-if="!isSearchPanelCollapsed">
-              <el-button
-                type="primary"
-                :disabled="!startDateTime || !endDateTime"
-                @click="handleSearch"
-                style="width: 100%"
-              >
-                <el-icon><Search /></el-icon>
-                查询录像
-              </el-button>
-            </template>
-          </div>
-        </div>
-      </div>
+      <DateTimeRangePanel
+        title="录像查询"
+        @search="handleSearch"
+      />
     </div>
     <div class="right-panel">
       <div class="playback-panel">
