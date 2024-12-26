@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import DeviceTree from '@/components/monitor/DeviceTree.vue'
 import MonitorGrid from '@/components/monitor/MonitorGrid.vue'
+import PtzControlPanel from '@/components/monitor/PtzControlPanel.vue'
 import type { Device, ChannelInfo } from '@/types/api'
 
 const monitorGridRef = ref()
@@ -22,15 +23,28 @@ const handleDevicePlay = (data: { device: Device | undefined; channel: ChannelIn
     ElMessage.warning('设备信息不完整')
   }
 }
+
+const handlePtzControl = (direction: string) => {
+  if (!selectedChannel.value) {
+    ElMessage.warning('请先选择通道')
+    return
+  }
+  console.log('云台控制:', direction, selectedChannel.value)
+  // TODO: 实现云台控制逻辑
+}
 </script>
 
 <template>
   <div class="monitor-view">
     <div class="monitor-layout">
-      <div class="device-tree-container">
+      <div class="left-panel">
         <DeviceTree 
           @select="handleDeviceSelect"
           @play="handleDevicePlay"
+        />
+        <PtzControlPanel
+          title="云台控制"
+          @control="handlePtzControl"
         />
       </div>
       <div class="monitor-grid-container">
@@ -47,13 +61,16 @@ const handleDevicePlay = (data: { device: Device | undefined; channel: ChannelIn
 
 .monitor-layout {
   display: grid;
-  grid-template-columns: 240px 1fr;
-  gap: 20px;
+  grid-template-columns: 280px 1fr;
+  gap: 16px;
   height: calc(100vh - 180px);
 }
 
-.device-tree-container {
+.left-panel {
   height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .monitor-grid-container {

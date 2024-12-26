@@ -555,7 +555,7 @@ const toggleMute = (index: number) => {
   height: 100%;
   background: #fff;
   border-radius: 4px;
-  padding: 20px;
+  padding: 10px;
   display: flex;
   flex-direction: column;
   gap: 20px;
