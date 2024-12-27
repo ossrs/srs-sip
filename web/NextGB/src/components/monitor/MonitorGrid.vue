@@ -26,16 +26,17 @@ const layouts = {
   '4': { cols: 2, rows: 2, size: 4, label: '四分屏' },
   '9': { cols: 3, rows: 3, size: 9, label: '九分屏' },
   '16': { cols: 4, rows: 4, size: 16, label: '十六分屏' },
-}
+} as const
 
-// 状态管理
+type LayoutKey = keyof typeof layouts
+
+const currentLayout = ref<LayoutKey>('9')
 const selectedDevices = ref<(DeviceWithChannel | null)[]>([])
-const currentLayout = ref<keyof typeof layouts>('9')
 const isFullscreen = ref(false)
 const showSettings = ref(false)
 const defaultMuted = ref(true)
 
-// 计��属性
+// 计算属性
 const gridStyle = computed(() => {
   const layout = layouts[currentLayout.value]
   return {
@@ -320,7 +321,7 @@ const clearAllDevices = async () => {
     // 用 null 填充数组而不是清空
     selectedDevices.value = new Array(layouts[currentLayout.value].size).fill(null)
 
-    ElMessage.success('已清空所有设��')
+    ElMessage.success('已清空所有设备')
   } catch (err) {
     if (err !== 'cancel') {
       console.error('清空设备失败:', err)
@@ -418,135 +419,85 @@ const toggleMute = (index: number) => {
   device.isMuted = !device.isMuted
   videoElement.muted = device.isMuted
 }
+
+const emit = defineEmits<{
+  'window-select': [data: { deviceId: string; channelId: string } | null]
+}>()
+
+const activeIndex = ref<number | null>(null)
+
+const handleVideoClick = (index: number) => {
+  const device = selectedDevices.value[index]
+  activeIndex.value = index
+  
+  if (device && device.channel) {
+    emit('window-select', {
+      deviceId: device.channel.parent_id,
+      channelId: device.channel.device_id
+    })
+  } else {
+    emit('window-select', null)
+  }
+}
 </script>
 
 <template>
   <div class="monitor-grid">
     <div class="grid-toolbar">
-      <div class="toolbar-left">
-        <el-button-group>
-          <el-button
-            v-for="(layout, key) in layouts"
-            :key="key"
-            :type="currentLayout === key ? 'primary' : ''"
-            @click="currentLayout = key"
-          >
+      <div class="layout-controls">
+        <el-radio-group v-model="currentLayout" size="small">
+          <el-radio-button v-for="(layout, key) in layouts" :key="key" :label="key as LayoutKey">
             {{ layout.label }}
-          </el-button>
-        </el-button-group>
+          </el-radio-button>
+        </el-radio-group>
       </div>
-      <div class="toolbar-right">
+      <div class="toolbar-actions">
         <el-button-group>
-          <el-button type="primary" @click="showSettings = true" :title="'设置'">
-            <el-icon><Setting /></el-icon>
-          </el-button>
-          <el-button type="danger" @click="clearAllDevices" :title="'清空所有设备'">
-            清空
-          </el-button>
-          <el-button
-            type="primary"
-            @click="toggleGridFullscreen"
-            :title="isFullscreen ? '退出全屏' : '全屏显示'"
-          >
+          <el-button size="small" @click="toggleGridFullscreen">
             <el-icon><FullScreen /></el-icon>
           </el-button>
         </el-button-group>
       </div>
     </div>
-
-    <div class="grid-container" :class="{ 'is-fullscreen': isFullscreen }" :style="gridStyle">
-      <div v-for="i in maxDevices" :key="i" class="grid-item">
-        <template v-if="selectedDevices[i - 1]">
-          <div class="video-container" :class="{ 'has-error': selectedDevices[i - 1]?.error }">
-            <div class="video-placeholder">
-              <video
-                :id="'video-player-' + (i - 1)"
-                width="100%"
-                height="100%"
-                autoplay
-                @error="handleVideoError(i - 1, $event)"
-                @dblclick="handleVideoDoubleClick(i - 1)"
-              ></video>
-
-              <!-- 错误状态 -->
-              <div v-if="selectedDevices[i - 1]?.error" class="error-overlay">
-                <span>播放失败</span>
-                <el-button type="primary" size="small" @click="retryStream(i - 1)">
-                  <el-icon><Refresh /></el-icon>
-                  重试
-                </el-button>
-              </div>
+    <div class="grid-container" :style="gridStyle">
+      <div
+        v-for="(device, index) in selectedDevices"
+        :key="index"
+        class="grid-item"
+        :class="{ active: index === activeIndex }"
+        @click="handleVideoClick(index)"
+      >
+        <template v-if="device !== null">
+          <video
+            :id="`video-player-${index}`"
+            class="video-player"
+            autoplay
+            :muted="device.isMuted ?? true"
+            @dblclick="handleVideoDoubleClick(index)"
+            @error="handleVideoError(index, $event)"
+          />
+          <div class="video-overlay">
+            <div class="device-info">
+              {{ device.name }} - {{ device.channel?.name ?? '' }}
             </div>
-
             <div class="video-controls">
-              <div class="control-bar">
-                <el-button
-                  type="primary"
-                  class="control-btn"
-                  @click="toggleMute(i - 1)"
-                  :style="{
-                    width: getControlSize(i - 1).btnSize + 'px',
-                    height: getControlSize(i - 1).btnSize + 'px',
-                    fontSize: getControlSize(i - 1).iconSize + 'px',
-                  }"
-                  :title="selectedDevices[i - 1]?.isMuted ? '取消静音' : '静音'"
-                >
-                  <el-icon>
-                    <component :is="selectedDevices[i - 1]?.isMuted ? 'Mute' : 'Microphone'" />
-                  </el-icon>
+              <el-button-group>
+                <el-button size="small" @click.stop="retryStream(index)" v-if="device.error">
+                  <el-icon><Refresh /></el-icon>
                 </el-button>
-                <el-button
-                  type="primary"
-                  class="control-btn"
-                  @click="captureImage(i - 1)"
-                  :style="{
-                    width: getControlSize(i - 1).btnSize + 'px',
-                    height: getControlSize(i - 1).btnSize + 'px',
-                    fontSize: getControlSize(i - 1).iconSize + 'px',
-                  }"
-                  :disabled="selectedDevices[i - 1]?.error"
-                  :title="'抓图'"
-                >
-                  <el-icon><Camera /></el-icon>
-                </el-button>
-                <el-button
-                  type="danger"
-                  class="control-btn"
-                  @click="removeDevice(i - 1)"
-                  :style="{
-                    width: getControlSize(i - 1).btnSize + 'px',
-                    height: getControlSize(i - 1).btnSize + 'px',
-                    fontSize: getControlSize(i - 1).iconSize + 'px',
-                  }"
-                  :title="'移除'"
-                >
+                <el-button size="small" @click.stop="removeDevice(index)">
                   <el-icon><Close /></el-icon>
                 </el-button>
-              </div>
+              </el-button-group>
             </div>
           </div>
         </template>
-        <div v-else class="empty-grid">
+        <div v-else class="empty-slot">
           <el-icon><VideoCamera /></el-icon>
-          <span>未选择设备</span>
+          <span>点击添加视频</span>
         </div>
       </div>
     </div>
-
-    <!-- 设置对话框 -->
-    <el-dialog v-model="showSettings" title="设置" width="400px" destroy-on-close>
-      <el-form label-width="120px">
-        <el-form-item label="默认静音">
-          <el-switch v-model="defaultMuted" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="showSettings = false">取消</el-button>
-          <el-button type="primary" @click="showSettings = false">确定</el-button>
-        </span>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
@@ -589,294 +540,125 @@ const toggleMute = (index: number) => {
 }
 
 .grid-item {
-  background: #000;
-  border-radius: 4px;
-  overflow: hidden;
   position: relative;
-  aspect-ratio: 16/9;
-}
-
-.video-container {
-  width: 100%;
-  height: 100%;
-  position: relative;
-  transition: all 0.3s ease;
-}
-
-.video-container.has-error .video-placeholder {
-  border: 2px solid #f56c6c;
-}
-
-.video-placeholder {
-  width: 100%;
-  height: 100%;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  background: #1a1a1a;
+  background-color: var(--el-fill-color-darker);
   border: 2px solid transparent;
-  transition: border-color 0.3s ease;
-}
-
-.video-placeholder video {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
-.error-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.7);
-  gap: 10px;
-  z-index: 3;
-  color: #f56c6c;
-}
-
-.video-controls {
-  position: absolute;
-  top: 0;
-  right: 0;
-  opacity: 0;
-  transition: all 0.3s ease;
-  z-index: 2;
-}
-
-.video-container:hover .video-controls {
-  opacity: 1;
-}
-
-.control-bar {
-  display: flex;
-  background: rgba(0, 0, 0, 0.5);
-  padding: 2px;
-  gap: 2px;
-  backdrop-filter: blur(4px);
-}
-
-.control-btn {
-  padding: 0 !important;
-  border: none !important;
-  display: flex !important;
-  align-items: center;
-  justify-content: center;
-  background: transparent !important;
-  transition: all 0.2s ease !important;
-  border-radius: 0 !important;
-}
-
-.control-btn:first-child {
-  border-radius: 0 0 0 4px !important;
-}
-
-.control-btn:last-child {
-  border-radius: 0 4px 0 0 !important;
-}
-
-.control-btn:hover {
-  background: rgba(255, 255, 255, 0.1) !important;
-  transform: scale(1.1);
-}
-
-.control-btn {
-  color: #fff !important;
-}
-
-.control-btn:hover {
-  color: #409eff !important;
-}
-
-.control-btn.el-button--danger:hover {
-  color: #f56c6c !important;
-}
-
-.control-btn .el-icon {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.empty-grid {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: rgba(255, 255, 255, 0.4);
-  gap: 10px;
-  background: #1a1a1a;
-  border-radius: 4px;
-  transition: all 0.3s ease;
+  transition: border-color 0.2s ease;
   cursor: pointer;
-}
-
-.empty-grid:hover {
-  color: #409eff;
-  background: #1d1d1d;
-}
-
-.empty-grid .el-icon {
-  font-size: 32px;
-  opacity: 0.6;
-  transition: all 0.3s ease;
-}
-
-.empty-grid:hover .el-icon {
-  opacity: 1;
-  transform: scale(1.1);
-}
-
-:deep(.el-button-group) {
-  .el-button {
-    padding: 8px 15px;
-    transition: all 0.3s ease;
-  }
-
-  .el-button:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
-  }
-}
-
-/* 全屏样式 */
-.grid-container:fullscreen,
-.grid-container:-webkit-full-screen,
-.grid-container:-moz-full-screen,
-.grid-container:-ms-fullscreen {
-  background: #000;
-  padding: 20px;
-}
-
-.grid-container.is-fullscreen {
-  padding: 20px;
-  background: #000;
-  gap: 8px;
-}
-
-.grid-container.is-fullscreen .video-container {
-  border-radius: 8px;
+  aspect-ratio: 16/9;
   overflow: hidden;
+  
+  &.active {
+    border-color: var(--el-color-primary);
+  }
 }
 
-.video-container video {
-  position: absolute;
-  top: 0;
-  left: 0;
+.video-player {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  transition: all 0.3s ease;
+  background: #000;
 }
 
-.video-container:hover video {
-  object-fit: contain;
+.video-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 8px;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, transparent 30%, transparent 70%, rgba(0,0,0,0.5) 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.grid-item:hover .video-overlay {
+  opacity: 1;
 }
 
 .device-info {
-  display: none;
+  color: #fff;
+  font-size: 12px;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
 }
 
-.video-container:hover .device-info {
-  display: none;
-}
-
-.control-bar {
+.video-controls {
   display: flex;
-  background: rgba(0, 0, 0, 0.5);
-  padding: 4px;
-  border-radius: 4px;
+  justify-content: flex-end;
   gap: 4px;
-  backdrop-filter: blur(4px);
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
 }
 
-.empty-grid {
+.empty-slot {
   width: 100%;
   height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: rgba(255, 255, 255, 0.4);
-  gap: 10px;
-  background: #1a1a1a;
-  border-radius: 4px;
-  transition: all 0.3s ease;
-  cursor: pointer;
-}
-
-.empty-grid:hover {
-  color: #409eff;
-  background: #1d1d1d;
-}
-
-.empty-grid .el-icon {
-  font-size: 32px;
-  opacity: 0.6;
-  transition: all 0.3s ease;
-}
-
-.empty-grid:hover .el-icon {
-  opacity: 1;
-  transform: scale(1.1);
-}
-
-/* 优化全屏模式 */
-.grid-container.is-fullscreen {
-  padding: 20px;
-  background: #000;
   gap: 8px;
-}
-
-.grid-container.is-fullscreen .video-container {
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-/* 优化按钮样式 */
-:deep(.el-button-group) {
-  .el-button {
-    padding: 8px 15px;
-    transition: all 0.3s ease;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+  background: var(--el-fill-color-light);
+  
+  .el-icon {
+    font-size: 24px;
+    opacity: 0.7;
   }
 
-  .el-button:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  &:hover {
+    background: var(--el-fill-color);
+    
+    .el-icon {
+      opacity: 1;
+      color: var(--el-color-primary);
+    }
   }
 }
 
-/* 优化错误状态 */
-.error-overlay {
-  background: rgba(0, 0, 0, 0.8);
-  backdrop-filter: blur(4px);
+.grid-container {
+  flex: 1;
+  display: grid;
+  gap: 8px;
+  padding: 8px;
+  height: calc(100% - 60px);
+  background: var(--el-bg-color-page);
+  border-radius: 4px;
+  
+  &.is-fullscreen {
+    padding: 16px;
+    background: #000;
+    gap: 16px;
+  }
 }
 
-.error-overlay .el-button {
-  transition: all 0.3s ease;
+.monitor-grid {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--el-bg-color);
+  border-radius: 4px;
+  box-shadow: var(--el-box-shadow-lighter);
 }
 
-.error-overlay .el-button:hover {
-  transform: scale(1.1);
+.grid-toolbar {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-/* 添加点击效果样式 */
+:deep(.el-button-group .el-button--small) {
+  padding: 5px 11px;
+}
+
+:deep(.el-radio-group .el-radio-button__inner) {
+  padding: 5px 15px;
+}
+
 .video-container {
   width: 100%;
   height: 100%;

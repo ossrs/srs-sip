@@ -90,6 +90,10 @@ export const deviceApi = {
   // 添加 invite API
   inviteStream: (params: { device_id: string; channel_id: string; sub_stream: string }) =>
     api.post<ApiResponse<any>>('/srs-sip/v1/invite', params),
+
+  // 云台控制
+  controlPTZ: (params: { device_id: string; channel_id: string; ptz: string }) =>
+    api.post<ApiResponse<any>>('/srs-sip/v1/ptz', params),
 }
 
 // 请求拦截器

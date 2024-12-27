@@ -1,9 +1,15 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { ArrowRight, VideoCamera } from '@element-plus/icons-vue'
 import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight as ArrowRightControl } from '@element-plus/icons-vue'
+import { deviceApi } from '@/api'
+import { ElMessage } from 'element-plus'
 
 const props = defineProps<{
+  activeWindow?: {
+    deviceId: string
+    channelId: string
+  } | null
   title?: string
 }>()
 
@@ -13,9 +19,25 @@ const emit = defineEmits<{
 
 const isCollapsed = ref(false)
 
-const handlePtzControl = (direction: string) => {
-  emit('control', direction)
+const handlePtzControl = async (direction: string) => {
+  if (!props.activeWindow) {
+    ElMessage.warning('请先选择一个视频窗口')
+    return
+  }
+
+  try {
+    await deviceApi.controlPTZ({
+      device_id: props.activeWindow.deviceId,
+      channel_id: props.activeWindow.channelId,
+      ptz: direction
+    })
+    emit('control', direction)
+  } catch (error) {
+    console.error('PTZ control failed:', error)
+  }
 }
+
+const isDisabled = computed(() => !props.activeWindow)
 </script>
 
 <template>
@@ -34,16 +56,16 @@ const handlePtzControl = (direction: string) => {
         <div class="ptz-controls">
           <div class="direction-controls">
             <div class="direction-pad">
-              <el-button class="direction-btn up" @click="handlePtzControl('up')">
+              <el-button class="direction-btn up" :disabled="isDisabled" @click="handlePtzControl('up')">
                 <el-icon><ArrowUp /></el-icon>
               </el-button>
-              <el-button class="direction-btn right" @click="handlePtzControl('right')">
+              <el-button class="direction-btn right" :disabled="isDisabled" @click="handlePtzControl('right')">
                 <el-icon><ArrowRightControl /></el-icon>
               </el-button>
-              <el-button class="direction-btn down" @click="handlePtzControl('down')">
+              <el-button class="direction-btn down" :disabled="isDisabled" @click="handlePtzControl('down')">
                 <el-icon><ArrowDown /></el-icon>
               </el-button>
-              <el-button class="direction-btn left" @click="handlePtzControl('left')">
+              <el-button class="direction-btn left" :disabled="isDisabled" @click="handlePtzControl('left')">
                 <el-icon><ArrowLeft /></el-icon>
               </el-button>
               <div class="direction-center"></div>

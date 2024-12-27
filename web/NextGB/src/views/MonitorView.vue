@@ -8,6 +8,7 @@ import type { Device, ChannelInfo } from '@/types/api'
 
 const monitorGridRef = ref()
 const selectedChannel = ref<{ device: Device | undefined; channel: ChannelInfo } | null>(null)
+const activeWindow = ref<{ deviceId: string; channelId: string } | null>(null)
 
 const handleDeviceSelect = (data: { device: Device | undefined; channel: ChannelInfo }) => {
   selectedChannel.value = data
@@ -24,13 +25,16 @@ const handleDevicePlay = (data: { device: Device | undefined; channel: ChannelIn
   }
 }
 
+const handleWindowSelect = (data: { deviceId: string; channelId: string } | null) => {
+  activeWindow.value = data
+}
+
 const handlePtzControl = (direction: string) => {
-  if (!selectedChannel.value) {
-    ElMessage.warning('请先选择通道')
+  if (!activeWindow.value) {
+    ElMessage.warning('请先选择视频窗口')
     return
   }
-  console.log('云台控制:', direction, selectedChannel.value)
-  // TODO: 实现云台控制逻辑
+  console.log('云台控制:', direction, activeWindow.value)
 }
 </script>
 
@@ -44,11 +48,15 @@ const handlePtzControl = (direction: string) => {
         />
         <PtzControlPanel
           title="云台控制"
+          :active-window="activeWindow"
           @control="handlePtzControl"
         />
       </div>
       <div class="monitor-grid-container">
-        <MonitorGrid ref="monitorGridRef" />
+        <MonitorGrid 
+          ref="monitorGridRef" 
+          @window-select="handleWindowSelect"
+        />
       </div>
     </div>
   </div>
