@@ -98,12 +98,24 @@ const filteredData = computed(() => {
       }))
     )
     
-    if (!query) return allChannels
+    if (!query) {
+      return [{
+        label: '所有通道',
+        device_id: 'root',
+        children: allChannels
+      }]
+    }
 
-    return allChannels.filter(channel => 
+    const filteredChannels = allChannels.filter(channel => 
       channel.label.toLowerCase().includes(query) ||
       channel.device_id.toLowerCase().includes(query)
     )
+
+    return [{
+      label: '所有通道',
+      device_id: 'root',
+      children: filteredChannels
+    }]
   }
 
   if (!query) {
@@ -220,21 +232,29 @@ onMounted(() => {
     </el-tree>
 
     <div v-else class="channel-list" v-loading="loading">
-      <div
-        v-for="channel in filteredData"
-        :key="channel.device_id"
-        class="channel-list-item"
-        @click="handleSelect(channel)"
-        @dblclick="handleNodeDbClick(channel)"
+      <el-tree
+        :data="filteredData"
+        :props="{ children: 'children', label: 'label' }"
+        @node-click="handleSelect"
+        node-key="device_id"
+        highlight-current
+        :default-expanded-keys="['root']"
       >
-        <span class="channel-label">{{ channel.label }}</span>
-        <el-tag
-          size="small"
-          :type="channel.channelInfo?.status === 'ON' ? 'success' : 'danger'"
-        >
-          {{ channel.channelInfo?.status === 'ON' ? '在线' : '离线' }}
-        </el-tag>
-      </div>
+        <template #default="{ node, data }">
+          <span class="custom-tree-node" @dblclick.stop="handleNodeDbClick(data)">
+            <span :class="data.isChannel ? 'channel-label' : 'device-label'">
+              {{ data.label }}
+            </span>
+            <el-tag
+              v-if="data.isChannel"
+              size="small"
+              :type="data.channelInfo?.status === 'ON' ? 'success' : 'danger'"
+            >
+              {{ data.channelInfo?.status === 'ON' ? '在线' : '离线' }}
+            </el-tag>
+          </span>
+        </template>
+      </el-tree>
     </div>
   </div>
 </template>
@@ -247,6 +267,7 @@ onMounted(() => {
   background-color: #fff;
   border-radius: 4px;
   padding: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .search-box {
@@ -318,27 +339,23 @@ onMounted(() => {
   }
 
   :deep(.el-input__wrapper) {
-    box-shadow: 0 0 0 1px #dcdfe6 inset;
+    box-shadow: 0 0 0 1px var(--el-border-color) inset;
 
     &:hover {
-      box-shadow: 0 0 0 1px #c0c4cc inset;
+      box-shadow: 0 0 0 1px var(--el-border-color-hover) inset;
     }
 
     &.is-focus {
-      box-shadow: 0 0 0 1px #409eff inset;
+      box-shadow: 0 0 0 1px var(--el-color-primary) inset;
     }
   }
-}
-
-.tree-header {
-  padding: 15px;
-  border-bottom: 1px solid #eee;
 }
 
 .el-tree {
   flex: 1;
   padding: 0;
   overflow-y: auto;
+  border-radius: 4px;
 
   :deep(.el-tree-node) {
     &.is-expanded > .el-tree-node__children {
@@ -352,7 +369,7 @@ onMounted(() => {
       position: absolute;
       left: -12px;
       top: -4px;
-      border-left: 1px dotted #c0c4cc;
+      border-left: 1px dotted var(--el-border-color);
     }
 
     &:last-child::before {
@@ -361,22 +378,25 @@ onMounted(() => {
   }
 
   :deep(.el-tree-node__content) {
-    height: 32px;
+    height: 36px;
     padding-left: 8px !important;
+    border-radius: 4px;
+    transition: all 0.2s ease;
 
     &:hover {
-      background-color: #f5f7fa;
+      background-color: var(--el-fill-color-light);
     }
 
     &.is-current {
-      background-color: #ecf5ff;
-      color: #409eff;
+      background-color: var(--el-color-primary-light-9);
+      color: var(--el-color-primary);
     }
   }
 
   :deep(.el-tree-node__expand-icon) {
     font-size: 16px;
-    color: #909399;
+    color: var(--el-text-color-secondary);
+    transition: transform 0.2s ease;
 
     &.expanded {
       transform: rotate(90deg);
@@ -398,46 +418,96 @@ onMounted(() => {
 
   .device-label {
     font-weight: 500;
-    color: #303133;
+    color: var(--el-text-color-primary);
+    font-size: 14px;
   }
 
   .channel-label {
-    color: #606266;
+    color: var(--el-text-color-regular);
     font-size: 13px;
   }
 
   .el-tag {
     margin-left: auto;
+    transition: all 0.2s ease;
   }
-}
-
-:deep(.el-tree-node__content) {
-  user-select: none;
 }
 
 .channel-list {
   flex: 1;
   overflow-y: auto;
-  padding: 8px;
+  padding: 2px;
+  border-radius: 4px;
+
+  :deep(.el-tree) {
+    background: transparent;
+    
+    .el-tree-node__content {
+      height: 36px;
+      padding-left: 8px !important;
+      border-radius: 4px;
+      transition: all 0.2s ease;
+
+      &:hover {
+        background-color: var(--el-fill-color-light);
+      }
+
+      &.is-current {
+        background-color: var(--el-color-primary-light-9);
+        color: var(--el-color-primary);
+      }
+    }
+
+    .el-tree-node__expand-icon {
+      font-size: 16px;
+      color: var(--el-text-color-secondary);
+      transition: transform 0.2s ease;
+
+      &.expanded {
+        transform: rotate(90deg);
+      }
+
+      &.is-leaf {
+        color: transparent;
+      }
+    }
+  }
 }
 
 .channel-list-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px;
+  padding: 6px 10px;
+  margin: 2px 0;
   border-radius: 4px;
   cursor: pointer;
   user-select: none;
+  transition: all 0.2s ease;
+  min-height: 32px;
 
   &:hover {
-    background-color: #f5f7fa;
+    background-color: var(--el-fill-color-light);
   }
 
   .channel-label {
-    color: #606266;
+    color: var(--el-text-color-regular);
     font-size: 13px;
+    line-height: 1.2;
   }
+
+  .el-tag {
+    transition: all 0.2s ease;
+    transform-origin: right;
+    
+    &:not(:first-child) {
+      margin-left: 4px;
+    }
+  }
+}
+
+:deep(.el-tree-node__content) {
+  user-select: none;
 }
 
 .search-wrapper {
