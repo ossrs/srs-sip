@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onBeforeUnmount, onMounted } from 'vue'
-import { VideoCamera, Close, Camera, FullScreen, Refresh, Setting, Mute, Microphone } from '@element-plus/icons-vue'
+import { VideoCamera, Close, Camera, FullScreen, Refresh, Setting, Mute, Microphone, Delete } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { Device, ChannelInfo } from '@/types/api'
 import { deviceApi } from '@/api'
@@ -192,7 +192,7 @@ const restoreLayoutState = async () => {
       // 初始化数组大小
       selectedDevices.value = new Array(layouts[layout].size).fill(null)
       
-      // 恢复设备到原来的位置
+      // 恢复设���到原来的位置
       for (const device of devices) {
         if (device?.channelInfo) {
           const index = device.index
@@ -453,6 +453,12 @@ const handleVideoClick = (index: number) => {
       </div>
       <div class="toolbar-actions">
         <el-button-group>
+          <el-button size="small" @click="showSettings = true" :title="'设置'">
+            <el-icon><Setting /></el-icon>
+          </el-button>
+          <el-button type="danger" size="small" @click="clearAllDevices" :title="'清空所有设备'">
+            <el-icon><Delete /></el-icon>
+          </el-button>
           <el-button size="small" @click="toggleGridFullscreen">
             <el-icon><FullScreen /></el-icon>
           </el-button>
@@ -527,11 +533,25 @@ const handleVideoClick = (index: number) => {
         </template>
         <div v-else class="empty-slot">
           <el-icon><VideoCamera /></el-icon>
-          <span>点击添加视频</span>
         </div>
       </div>
     </div>
   </div>
+
+  <!-- 设置对话框 -->
+  <el-dialog v-model="showSettings" title="设置" width="400px" destroy-on-close>
+    <el-form label-width="120px">
+      <el-form-item label="默认静音">
+        <el-switch v-model="defaultMuted" />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <span class="dialog-footer">
+        <el-button @click="showSettings = false">取消</el-button>
+        <el-button type="primary" @click="showSettings = false">确定</el-button>
+      </span>
+    </template>
+  </el-dialog>
 </template>
 
 <style scoped>
@@ -693,24 +713,21 @@ const handleVideoClick = (index: number) => {
   width: 100%;
   height: 100%;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 13px;
   background: #1a1a1a;
   
   .el-icon {
     font-size: 24px;
-    opacity: 0.7;
+    opacity: 0.5;
+    color: #fff;
   }
 
   &:hover {
     background: #242424;
     
     .el-icon {
-      opacity: 1;
+      opacity: 0.8;
       color: var(--el-color-primary);
     }
   }
