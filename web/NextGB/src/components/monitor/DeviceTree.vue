@@ -3,7 +3,7 @@ import { ref, onMounted, computed } from 'vue'
 import { deviceApi } from '@/api'
 import type { Device, ChannelInfo } from '@/types/api'
 import { ElMessage } from 'element-plus'
-import { Search, Refresh } from '@element-plus/icons-vue'
+import { Search, Refresh, List, Grid } from '@element-plus/icons-vue'
 
 interface DeviceNode {
   device_id: string
@@ -85,25 +85,41 @@ const handleNodeDbClick = (data: DeviceNode) => {
   }
 }
 
+const viewMode = ref<'tree' | 'list'>('tree')
+
 const filteredData = computed(() => {
-  if (!searchQuery.value.trim()) {
-    expandedKeys.value = [] // 清空展开的节点
+  const query = searchQuery.value.trim().toLowerCase()
+
+  if (viewMode.value === 'list') {
+    const allChannels = deviceNodes.value.flatMap(node => 
+      (node.children || []).map(channel => ({
+        ...channel,
+        parentDeviceId: node.device_id
+      }))
+    )
+    
+    if (!query) return allChannels
+
+    return allChannels.filter(channel => 
+      channel.label.toLowerCase().includes(query) ||
+      channel.device_id.toLowerCase().includes(query)
+    )
+  }
+
+  if (!query) {
+    expandedKeys.value = []
     return deviceNodes.value
   }
 
-  const query = searchQuery.value.trim().toLowerCase()
-  expandedKeys.value = ['root'] // 添加根节点，确保"所有设备"始终展开
+  expandedKeys.value = ['root']
 
-  const filteredNodes = deviceNodes.value.filter((node) => {
-    // 递归搜索设备和通道
+  return deviceNodes.value.filter((node) => {
     const searchNode = (item: any): boolean => {
       const isMatch =
         item.label?.toLowerCase().includes(query) || item.device_id?.toLowerCase().includes(query)
 
-      // 如果当前节点匹配
       if (isMatch) {
         if (item.isChannel) {
-          // 如果是通道节点匹配，将其父设备节点添加到展开列表中
           const parentDevice = deviceNodes.value.find((device) =>
             device.children?.some((channel) => channel.device_id === item.device_id),
           )
@@ -111,15 +127,12 @@ const filteredData = computed(() => {
             expandedKeys.value.push(parentDevice.device_id)
           }
         } else {
-          // 如果是设备节点匹配，将其自身添加到展开列表中
           expandedKeys.value.push(item.device_id)
         }
       }
 
-      // 递归搜索子节点
       if (item.children) {
         const hasMatchingChild = item.children.some(searchNode)
-        // 如果子节点匹配，将当前节点ID添加到展开列表中
         if (hasMatchingChild && !expandedKeys.value.includes(item.device_id)) {
           expandedKeys.value.push(item.device_id)
         }
@@ -129,8 +142,6 @@ const filteredData = computed(() => {
     }
     return searchNode(node)
   })
-
-  return filteredNodes
 })
 
 const tooltipRef = ref()
@@ -154,6 +165,14 @@ onMounted(() => {
             <el-icon><Search /></el-icon>
           </template>
         </el-input>
+        <el-tooltip :content="viewMode === 'tree' ? '切换到列表视图' : '切换到树形视图'" placement="top">
+          <el-button
+            class="view-mode-btn"
+            :icon="viewMode === 'tree' ? List : Grid"
+            size="small"
+            @click="viewMode = viewMode === 'tree' ? 'list' : 'tree'"
+          />
+        </el-tooltip>
         <el-tooltip ref="tooltipRef" content="刷新设备列表" placement="top">
           <el-button
             type="primary"
@@ -167,6 +186,7 @@ onMounted(() => {
     </div>
 
     <el-tree
+      v-if="viewMode === 'tree'"
       v-loading="loading"
       :data="[
         {
@@ -196,6 +216,24 @@ onMounted(() => {
         </span>
       </template>
     </el-tree>
+
+    <div v-else class="channel-list" v-loading="loading">
+      <div
+        v-for="channel in filteredData"
+        :key="channel.device_id"
+        class="channel-list-item"
+        @click="handleSelect(channel)"
+        @dblclick="handleNodeDbClick(channel)"
+      >
+        <span class="channel-label">{{ channel.label }}</span>
+        <el-tag
+          size="small"
+          :type="channel.channelInfo?.status === 'ON' ? 'success' : 'danger'"
+        >
+          {{ channel.channelInfo?.status === 'ON' ? '在线' : '离线' }}
+        </el-tag>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -219,6 +257,22 @@ onMounted(() => {
 
   .el-input {
     flex: 1;
+  }
+
+  .view-mode-btn {
+    color: var(--el-text-color-regular);
+    border-color: transparent;
+    background-color: transparent;
+    padding: 5px 8px;
+
+    &:hover {
+      color: var(--el-color-primary);
+      background-color: var(--el-fill-color-light);
+    }
+
+    &:focus {
+      outline: none;
+    }
   }
 
   :deep(.el-input__wrapper) {
@@ -317,5 +371,36 @@ onMounted(() => {
 
 :deep(.el-tree-node__content) {
   user-select: none;
+}
+
+.channel-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.channel-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+
+  &:hover {
+    background-color: #f5f7fa;
+  }
+
+  .channel-label {
+    color: #606266;
+    font-size: 13px;
+  }
+}
+
+.search-wrapper {
+  .el-button-group {
+    margin-right: 8px;
+  }
 }
 </style>
