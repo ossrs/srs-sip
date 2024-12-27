@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { ArrowRight, VideoCamera } from '@element-plus/icons-vue'
-import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight as ArrowRightControl } from '@element-plus/icons-vue'
+import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight as ArrowRightControl,
+  TopLeft, TopRight, BottomLeft, BottomRight } from '@element-plus/icons-vue'
 import { deviceApi } from '@/api'
 import { ElMessage } from 'element-plus'
 
@@ -94,6 +95,30 @@ const isDisabled = computed(() => !props.activeWindow)
                 @mouseup="handlePtzStop"
                 @mouseleave="handlePtzStop">
                 <el-icon><ArrowLeft /></el-icon>
+              </el-button>
+              <el-button class="direction-btn up-left" :disabled="isDisabled" 
+                @mousedown="handlePtzStart('upleft')"
+                @mouseup="handlePtzStop"
+                @mouseleave="handlePtzStop">
+                <el-icon><TopLeft /></el-icon>
+              </el-button>
+              <el-button class="direction-btn up-right" :disabled="isDisabled" 
+                @mousedown="handlePtzStart('upright')"
+                @mouseup="handlePtzStop"
+                @mouseleave="handlePtzStop">
+                <el-icon><TopRight /></el-icon>
+              </el-button>
+              <el-button class="direction-btn down-left" :disabled="isDisabled" 
+                @mousedown="handlePtzStart('downleft')"
+                @mouseup="handlePtzStop"
+                @mouseleave="handlePtzStop">
+                <el-icon><BottomLeft /></el-icon>
+              </el-button>
+              <el-button class="direction-btn down-right" :disabled="isDisabled" 
+                @mousedown="handlePtzStart('downright')"
+                @mouseup="handlePtzStop"
+                @mouseleave="handlePtzStop">
+                <el-icon><BottomRight /></el-icon>
               </el-button>
               <div class="direction-center"></div>
             </div>
@@ -238,6 +263,26 @@ const isDisabled = computed(() => !props.activeWindow)
 .direction-btn.left {
   grid-column: 1;
   grid-row: 2;
+}
+
+.direction-btn.up-left {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.direction-btn.up-right {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+.direction-btn.down-left {
+  grid-column: 1;
+  grid-row: 3;
+}
+
+.direction-btn.down-right {
+  grid-column: 3;
+  grid-row: 3;
 }
 
 .direction-center {
