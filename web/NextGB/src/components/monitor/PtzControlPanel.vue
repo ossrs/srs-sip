@@ -19,6 +19,7 @@ const emit = defineEmits<{
 }>()
 
 const isCollapsed = ref(false)
+const speed = ref(5)
 
 const handlePtzStart = async (direction: string) => {
   if (!props.activeWindow) {
@@ -30,7 +31,8 @@ const handlePtzStart = async (direction: string) => {
     await deviceApi.controlPTZ({
       device_id: props.activeWindow.deviceId,
       channel_id: props.activeWindow.channelId,
-      ptz: direction
+      ptz: direction,
+      speed: speed.value.toString()
     })
     emit('control', direction)
   } catch (error) {
@@ -45,7 +47,8 @@ const handlePtzStop = async () => {
     await deviceApi.controlPTZ({
       device_id: props.activeWindow.deviceId,
       channel_id: props.activeWindow.channelId,
-      ptz: 'stop'
+      ptz: 'stop',
+      speed: speed.value.toString()
     })
     emit('control', 'stop')
   } catch (error) {
@@ -123,6 +126,19 @@ const isDisabled = computed(() => !props.activeWindow)
               <div class="direction-center"></div>
             </div>
           </div>
+          <div class="speed-control">
+            <div class="speed-value">{{ speed }}</div>
+            <el-slider
+              v-model="speed"
+              :min="1"
+              :max="10"
+              :step="1"
+              :show-tooltip="false"
+              :disabled="isDisabled"
+              vertical
+              height="90px"
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -189,6 +205,8 @@ const isDisabled = computed(() => !props.activeWindow)
   padding: 16px;
   transform-origin: top;
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  justify-content: center;
 }
 
 .ptz-control-panel.collapsed .control-form {
@@ -197,14 +215,17 @@ const isDisabled = computed(() => !props.activeWindow)
 
 .ptz-controls {
   display: flex;
-  flex-direction: column;
-  gap: 0;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  width: fit-content;
 }
 
 .direction-controls {
   display: flex;
   justify-content: center;
   padding: 0;
+  width: fit-content;
 }
 
 .direction-pad {
@@ -215,6 +236,7 @@ const isDisabled = computed(() => !props.activeWindow)
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(3, 1fr);
   gap: 4px;
+  margin: 0 auto;
 }
 
 .direction-btn {
@@ -295,5 +317,38 @@ const isDisabled = computed(() => !props.activeWindow)
 .control-groups,
 .control-group {
   display: none;
+}
+
+.speed-control {
+  height: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin-right: 0;
+  width: fit-content;
+}
+
+.speed-value {
+  color: var(--el-color-primary);
+  font-weight: 500;
+  font-size: 13px;
+  margin-bottom: 4px;
+  width: 16px;
+  text-align: center;
+  background-color: var(--el-color-primary-light-9);
+  border-radius: 2px;
+  padding: 1px 0;
+}
+
+:deep(.el-slider) {
+  --el-slider-button-size: 10px;
+  --el-slider-height: 2px;
+  height: 90px;
+}
+
+:deep(.el-slider.is-vertical) {
+  margin: 0;
 }
 </style> 

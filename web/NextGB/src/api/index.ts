@@ -92,7 +92,7 @@ export const deviceApi = {
     api.post<ApiResponse<any>>('/srs-sip/v1/invite', params),
 
   // 云台控制
-  controlPTZ: (params: { device_id: string; channel_id: string; ptz: string }) =>
+  controlPTZ: (params: { device_id: string; channel_id: string; ptz: string; speed: string }) =>
     api.post<ApiResponse<any>>('/srs-sip/v1/ptz', params),
 }
 

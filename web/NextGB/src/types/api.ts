@@ -54,3 +54,10 @@ export interface MediaServer {
   clients: number
   type: 'SRS' | 'OTHER' // 添加服务器类型
 }
+
+export interface PTZControlRequest {
+  device_id: string
+  channel_id: string
+  ptz: string
+  speed: string
+}
