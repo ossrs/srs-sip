@@ -3,7 +3,7 @@ import { ref, onMounted, computed } from 'vue'
 import { deviceApi } from '@/api'
 import type { Device, ChannelInfo } from '@/types/api'
 import { ElMessage } from 'element-plus'
-import { Search, Refresh, List, Grid } from '@element-plus/icons-vue'
+import { Search, Refresh, Expand, List } from '@element-plus/icons-vue'
 
 interface DeviceNode {
   device_id: string
@@ -165,23 +165,25 @@ onMounted(() => {
             <el-icon><Search /></el-icon>
           </template>
         </el-input>
-        <el-tooltip :content="viewMode === 'tree' ? '切换到列表视图' : '切换到树形视图'" placement="top">
-          <el-button
-            class="view-mode-btn"
-            :icon="viewMode === 'tree' ? List : Grid"
-            size="small"
-            @click="viewMode = viewMode === 'tree' ? 'list' : 'tree'"
-          />
-        </el-tooltip>
-        <el-tooltip ref="tooltipRef" content="刷新设备列表" placement="top">
-          <el-button
-            type="primary"
-            :icon="Refresh"
-            size="small"
-            :loading="loading"
-            @click="refreshDevices"
-          />
-        </el-tooltip>
+        <div class="action-buttons">
+          <el-tooltip :content="viewMode === 'tree' ? '切换到列表视图' : '切换到树形视图'" placement="top">
+            <el-button
+              class="action-btn"
+              :icon="viewMode === 'tree' ? List : Expand"
+              size="small"
+              @click="viewMode = viewMode === 'tree' ? 'list' : 'tree'"
+            />
+          </el-tooltip>
+          <el-tooltip ref="tooltipRef" content="刷新设备列表" placement="top">
+            <el-button
+              class="action-btn refresh-btn"
+              :icon="Refresh"
+              size="small"
+              :loading="loading"
+              @click="refreshDevices"
+            />
+          </el-tooltip>
+        </div>
       </div>
     </div>
 
@@ -259,19 +261,59 @@ onMounted(() => {
     flex: 1;
   }
 
-  .view-mode-btn {
-    color: var(--el-text-color-regular);
-    border-color: transparent;
-    background-color: transparent;
-    padding: 5px 8px;
+  .action-buttons {
+    display: flex;
+    gap: 0;
+    margin-left: auto;
 
-    &:hover {
-      color: var(--el-color-primary);
-      background-color: var(--el-fill-color-light);
-    }
+    .action-btn {
+      color: var(--el-text-color-regular);
+      border-color: transparent;
+      background-color: transparent;
+      padding: 5px 8px;
+      height: 32px;
+      width: 32px;
+      border-radius: 0;
+      margin-left: 0;
 
-    &:focus {
-      outline: none;
+      &:first-child {
+        border-top-left-radius: 4px;
+        border-bottom-left-radius: 4px;
+      }
+
+      &:last-child {
+        border-top-right-radius: 4px;
+        border-bottom-right-radius: 4px;
+      }
+
+      &:hover {
+        color: var(--el-color-primary);
+        background-color: var(--el-fill-color-light);
+      }
+
+      &:focus {
+        outline: none;
+      }
+
+      :deep(.el-icon) {
+        font-size: 16px;
+      }
+
+      &.is-loading {
+        background-color: transparent;
+      }
+
+      &.refresh-btn {
+        color: var(--el-color-primary);
+        
+        &:hover {
+          background-color: var(--el-color-primary-light-9);
+        }
+
+        &.is-loading {
+          color: var(--el-color-primary);
+        }
+      }
     }
   }
 
