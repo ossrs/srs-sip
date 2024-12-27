@@ -33,20 +33,22 @@ const fetchDevices = async () => {
   try {
     loading.value = true
     const response = await deviceApi.getDevices()
-    devices.value = (response.data || []).map(formatDeviceData)
+    const deviceList = Array.isArray(response.data) ? response.data : []
+    devices.value = deviceList.map(formatDeviceData)
 
     const nodes: DeviceNode[] = []
     for (const device of devices.value) {
       try {
         const response = await deviceApi.getDeviceChannels(device.device_id)
+        const channelList = Array.isArray(response.data) ? response.data : []
         const deviceNode: DeviceNode = {
           device_id: device.device_id,
           label: device.device_id,
-          children: (response.data || []).map((channel: ChannelInfo) => ({
+          children: channelList.map((channel: ChannelInfo) => ({
             device_id: channel.device_id,
             label: channel.name || channel.device_id,
             isChannel: true,
-            channelInfo: channel,
+            channelInfo: channel
           })),
         }
         nodes.push(deviceNode)
@@ -70,7 +72,7 @@ const emit = defineEmits<{
 const handleSelect = (data: DeviceNode) => {
   if (data.isChannel && data.channelInfo) {
     emit('select', {
-      device: devices.value.find((d) => d.device_id === data.channelInfo?.parent_id),
+      device: devices.value.find((d) => d.device_id === data.channelInfo?.device_id),
       channel: data.channelInfo,
     })
   }
@@ -79,7 +81,7 @@ const handleSelect = (data: DeviceNode) => {
 const handleNodeDbClick = (data: DeviceNode) => {
   if (data.isChannel && data.channelInfo) {
     emit('play', {
-      device: devices.value.find((d) => d.device_id === data.channelInfo?.parent_id),
+      device: devices.value.find((d) => d.device_id === data.channelInfo?.device_id),
       channel: data.channelInfo,
     })
   }

@@ -134,8 +134,30 @@ func (h *HttpApiServer) ApiBye(w http.ResponseWriter, r *http.Request) {
 	h.RespondWithJSONSimple(w, `{"msg":"Not implemented"}`)
 }
 
+// request: {"device_id": "1", "channel_id": "1", "ptz": "up"}
 func (h *HttpApiServer) ApiPTZControl(w http.ResponseWriter, r *http.Request) {
-	h.RespondWithJSONSimple(w, `{"msg":"Not implemented"}`)
+	var req map[string]string
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	deviceID := req["device_id"]
+	channelID := req["channel_id"]
+	ptz := req["ptz"]
+	speed := req["speed"]
+	code := 0
+	msg := ""
+	defer func() {
+		h.RespondWithJSON(w, code, map[string]string{"msg": msg})
+	}()
+	if err := h.sipSvr.Uas.ControlPTZ(deviceID, channelID, ptz, speed); err != nil {
+		code = http.StatusInternalServerError
+		msg = err.Error()
+		return
+	}
+	msg = "success"
+
 }
 
 func (h *HttpApiServer) ApiGetMediaServer(w http.ResponseWriter, r *http.Request) {

@@ -19,7 +19,7 @@ const emit = defineEmits<{
 
 const isCollapsed = ref(false)
 
-const handlePtzControl = async (direction: string) => {
+const handlePtzStart = async (direction: string) => {
   if (!props.activeWindow) {
     ElMessage.warning('请先选择一个视频窗口')
     return
@@ -34,6 +34,21 @@ const handlePtzControl = async (direction: string) => {
     emit('control', direction)
   } catch (error) {
     console.error('PTZ control failed:', error)
+  }
+}
+
+const handlePtzStop = async () => {
+  if (!props.activeWindow) return
+
+  try {
+    await deviceApi.controlPTZ({
+      device_id: props.activeWindow.deviceId,
+      channel_id: props.activeWindow.channelId,
+      ptz: 'stop'
+    })
+    emit('control', 'stop')
+  } catch (error) {
+    console.error('PTZ stop failed:', error)
   }
 }
 
@@ -56,16 +71,28 @@ const isDisabled = computed(() => !props.activeWindow)
         <div class="ptz-controls">
           <div class="direction-controls">
             <div class="direction-pad">
-              <el-button class="direction-btn up" :disabled="isDisabled" @click="handlePtzControl('up')">
+              <el-button class="direction-btn up" :disabled="isDisabled" 
+                @mousedown="handlePtzStart('up')"
+                @mouseup="handlePtzStop"
+                @mouseleave="handlePtzStop">
                 <el-icon><ArrowUp /></el-icon>
               </el-button>
-              <el-button class="direction-btn right" :disabled="isDisabled" @click="handlePtzControl('right')">
+              <el-button class="direction-btn right" :disabled="isDisabled" 
+                @mousedown="handlePtzStart('right')"
+                @mouseup="handlePtzStop"
+                @mouseleave="handlePtzStop">
                 <el-icon><ArrowRightControl /></el-icon>
               </el-button>
-              <el-button class="direction-btn down" :disabled="isDisabled" @click="handlePtzControl('down')">
+              <el-button class="direction-btn down" :disabled="isDisabled" 
+                @mousedown="handlePtzStart('down')"
+                @mouseup="handlePtzStop"
+                @mouseleave="handlePtzStop">
                 <el-icon><ArrowDown /></el-icon>
               </el-button>
-              <el-button class="direction-btn left" :disabled="isDisabled" @click="handlePtzControl('left')">
+              <el-button class="direction-btn left" :disabled="isDisabled" 
+                @mousedown="handlePtzStart('left')"
+                @mouseup="handlePtzStop"
+                @mouseleave="handlePtzStop">
                 <el-icon><ArrowLeft /></el-icon>
               </el-button>
               <div class="direction-center"></div>

@@ -131,7 +131,7 @@ func (s *UAS) Catalog(deviceID string) error {
 
 	body := fmt.Sprintf(CatalogXML, s.getSN(), deviceID)
 
-	req, err := stack.NewCatelogRequest([]byte(body), stack.OutboundConfig{
+	req, err := stack.NewMessageRequest([]byte(body), stack.OutboundConfig{
 		Via:       d.SourceAddr,
 		To:        d.DeviceID,
 		From:      s.conf.Serial,
@@ -166,4 +166,67 @@ func (s *UAS) waitAnswer(tx sip.ClientTransaction) (*sip.Response, error) {
 		}
 		return res, nil
 	}
+}
+
+// <?xml version="1.0"?>
+// <Control>
+// <CmdType>DeviceControl</CmdType>
+// <SN>474</SN>
+// <DeviceID>33010602001310019325</DeviceID>
+// <PTZCmd>a50f4d0190000092</PTZCmd>
+// <Info>
+// <ControlPriority>150</ControlPriority>
+// </Info>
+// </Control>
+func (s *UAS) ControlPTZ(deviceID, channelID, ptz, speed string) error {
+	var ptzXML = `<?xml version="1.0"?>
+	<Control>
+	<CmdType>DeviceControl</CmdType>
+	<SN>%d</SN>
+	<DeviceID>%s</DeviceID>
+	<PTZCmd>%s</PTZCmd>
+	<Info>
+	<ControlPriority>150</ControlPriority>
+	</Info>
+	</Control>
+	`
+
+	// d, ok := DM.GetDevice(deviceID)
+	d, ok := DM.GetDeviceInfoByChannel(channelID)
+	if !ok {
+		return errors.Errorf("device %s not found", deviceID)
+	}
+
+	ptzCmd, err := toPTZCmd(ptz, speed)
+	if err != nil {
+		return errors.Wrapf(err, "build ptz command error")
+	}
+
+	body := fmt.Sprintf(ptzXML, s.getSN(), channelID, ptzCmd)
+
+	req, err := stack.NewMessageRequest([]byte(body), stack.OutboundConfig{
+		Via:       d.SourceAddr,
+		To:        d.DeviceID,
+		From:      s.conf.Serial,
+		Transport: d.NetworkType,
+	})
+	if err != nil {
+		return errors.Wrapf(err, "build ptz request error")
+	}
+
+	tx, err := s.sipCli.TransactionRequest(s.ctx, req)
+	if err != nil {
+		return errors.Wrapf(err, "transaction request error")
+	}
+
+	res, err := s.waitAnswer(tx)
+	if err != nil {
+		return errors.Wrapf(err, "wait answer error")
+	}
+
+	if res.StatusCode != 200 {
+		return errors.Errorf("ptz response error: %s", res.String())
+	}
+
+	return nil
 }

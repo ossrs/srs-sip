@@ -57,7 +57,7 @@ func NewInviteRequest(body []byte, subject string, conf OutboundConfig) (*sip.Re
 	return req, nil
 }
 
-func NewCatelogRequest(body []byte, conf OutboundConfig) (*sip.Request, error) {
+func NewMessageRequest(body []byte, conf OutboundConfig) (*sip.Request, error) {
 	req, err := newRequest(sip.MESSAGE, body, conf)
 	if err != nil {
 		return nil, err

@@ -432,7 +432,7 @@ const handleVideoClick = (index: number) => {
   
   if (device && device.channel) {
     emit('window-select', {
-      deviceId: device.channel.parent_id,
+      deviceId: device.device_id,
       channelId: device.channel.device_id
     })
   } else {
