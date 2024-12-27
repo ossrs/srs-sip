@@ -481,14 +481,47 @@ const handleVideoClick = (index: number) => {
               {{ device.name }} - {{ device.channel?.name ?? '' }}
             </div>
             <div class="video-controls">
-              <el-button-group>
-                <el-button size="small" @click.stop="retryStream(index)" v-if="device.error">
+              <div class="control-bar">
+                <el-button
+                  class="control-btn"
+                  @click.stop="toggleMute(index)"
+                  :title="device.isMuted ? '取消静音' : '静音'"
+                >
+                  <el-icon>
+                    <component :is="device.isMuted ? 'Mute' : 'Microphone'" />
+                  </el-icon>
+                </el-button>
+                <el-button
+                  class="control-btn"
+                  @click.stop="captureImage(index)"
+                  :title="'抓图'"
+                  :disabled="device.error"
+                >
+                  <el-icon><Camera /></el-icon>
+                </el-button>
+                <el-button
+                  class="control-btn"
+                  @click.stop="handleVideoDoubleClick(index)"
+                  :title="'全屏'"
+                >
+                  <el-icon><FullScreen /></el-icon>
+                </el-button>
+                <el-button
+                  v-if="device.error"
+                  class="control-btn"
+                  @click.stop="retryStream(index)"
+                  :title="'重试'"
+                >
                   <el-icon><Refresh /></el-icon>
                 </el-button>
-                <el-button size="small" @click.stop="removeDevice(index)">
+                <el-button
+                  class="control-btn is-danger"
+                  @click.stop="removeDevice(index)"
+                  :title="'关闭'"
+                >
                   <el-icon><Close /></el-icon>
                 </el-button>
-              </el-button-group>
+              </div>
             </div>
           </div>
         </template>
@@ -577,9 +610,8 @@ const handleVideoClick = (index: number) => {
   bottom: 0;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  padding: 8px;
-  background: linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, transparent 30%, transparent 70%, rgba(0,0,0,0.5) 100%);
+  padding: 0;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, transparent 30%);
   opacity: 0;
   transition: opacity 0.3s ease;
 }
@@ -589,15 +621,72 @@ const handleVideoClick = (index: number) => {
 }
 
 .device-info {
-  color: #fff;
-  font-size: 12px;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  display: none;
 }
 
 .video-controls {
   display: flex;
   justify-content: flex-end;
-  gap: 4px;
+}
+
+.control-bar {
+  display: flex;
+  gap: 2px;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 2px;
+  border-radius: 0 0 0 4px;
+  backdrop-filter: blur(4px);
+}
+
+.control-btn {
+  padding: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  color: #fff !important;
+  
+  &:hover {
+    background: rgba(255, 255, 255, 0.1) !important;
+    color: var(--el-color-primary) !important;
+  }
+  
+  &.is-danger:hover {
+    color: var(--el-color-danger) !important;
+  }
+}
+
+/* 根据布局调整按钮大小 */
+.grid-container[style*="repeat(1, 1fr)"] .control-btn {
+  width: 32px !important;
+  height: 32px !important;
+  font-size: 16px !important;
+}
+
+.grid-container[style*="repeat(2, 1fr)"] .control-btn {
+  width: 28px !important;
+  height: 28px !important;
+  font-size: 14px !important;
+}
+
+.grid-container[style*="repeat(3, 1fr)"] .control-btn {
+  width: 20px !important;
+  height: 20px !important;
+  font-size: 10px !important;
+}
+
+.grid-container[style*="repeat(4, 1fr)"] .control-btn {
+  width: 16px !important;
+  height: 16px !important;
+  font-size: 8px !important;
+}
+
+.control-bar {
+  .el-icon {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
 }
 
 .empty-slot {
