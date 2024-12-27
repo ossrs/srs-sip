@@ -504,20 +504,21 @@ const handleVideoClick = (index: number) => {
 <style scoped>
 .monitor-grid {
   height: 100%;
-  background: #fff;
-  border-radius: 4px;
-  padding: 10px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  background: var(--el-bg-color);
+  border-radius: 4px;
+  box-shadow: var(--el-box-shadow-lighter);
 }
 
 .grid-toolbar {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #eee;
+  background: var(--el-bg-color);
+  border-radius: 4px 4px 0 0;
 }
 
 .toolbar-left,
@@ -529,9 +530,17 @@ const handleVideoClick = (index: number) => {
 .grid-container {
   flex: 1;
   display: grid;
-  gap: 4px;
+  gap: 8px;
+  padding: 8px;
   height: calc(100% - 60px);
-  transition: all 0.3s ease;
+  background: var(--el-bg-color-page);
+  border-radius: 4px;
+  
+  &.is-fullscreen {
+    padding: 16px;
+    background: #000;
+    gap: 16px;
+  }
 }
 
 .grid-container.is-fullscreen {
@@ -599,9 +608,9 @@ const handleVideoClick = (index: number) => {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  color: var(--el-text-color-secondary);
+  color: rgba(255, 255, 255, 0.5);
   font-size: 13px;
-  background: var(--el-fill-color-light);
+  background: #1a1a1a;
   
   .el-icon {
     font-size: 24px;
@@ -609,7 +618,7 @@ const handleVideoClick = (index: number) => {
   }
 
   &:hover {
-    background: var(--el-fill-color);
+    background: #242424;
     
     .el-icon {
       opacity: 1;
@@ -649,6 +658,8 @@ const handleVideoClick = (index: number) => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  background: var(--el-bg-color);
+  border-radius: 4px 4px 0 0;
 }
 
 :deep(.el-button-group .el-button--small) {
@@ -668,5 +679,16 @@ const handleVideoClick = (index: number) => {
 
 .video-container:active {
   transform: none;
+}
+
+:deep(.el-radio-group) {
+  --el-button-bg-color: var(--el-fill-color-blank);
+  --el-button-hover-bg-color: var(--el-fill-color);
+  --el-button-active-bg-color: var(--el-color-primary);
+  --el-button-text-color: var(--el-text-color-regular);
+  --el-button-hover-text-color: var(--el-text-color-primary);
+  --el-button-active-text-color: #fff;
+  --el-button-border-color: var(--el-border-color);
+  --el-button-hover-border-color: var(--el-border-color-hover);
 }
 </style>
