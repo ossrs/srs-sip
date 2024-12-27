@@ -134,7 +134,7 @@ func (h *HttpApiServer) ApiBye(w http.ResponseWriter, r *http.Request) {
 	h.RespondWithJSONSimple(w, `{"msg":"Not implemented"}`)
 }
 
-// request: {"device_id": "1", "channel_id": "1", "ptz": "up"}
+// request: {"device_id": "1", "channel_id": "1", "ptz": "up", "speed": "1}
 func (h *HttpApiServer) ApiPTZControl(w http.ResponseWriter, r *http.Request) {
 	var req map[string]string
 	err := json.NewDecoder(r.Body).Decode(&req)
