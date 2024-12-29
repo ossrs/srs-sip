@@ -4,7 +4,17 @@ import DeviceTree from '@/components/monitor/DeviceTree.vue'
 import VideoPlayer from '@/components/playback/VideoPlayer.vue'
 import DateTimeRangePanel from '@/components/common/DateTimeRangePanel.vue'
 import type { Device, ChannelInfo } from '@/types/api'
-import { VideoPlay, VideoPause, VideoCamera, Download, Microphone } from '@element-plus/icons-vue'
+import {
+  CaretRight,
+  VideoPause,
+  CircleClose,
+  DArrowRight,
+  DArrowLeft,
+  Timer,
+  Picture,
+  Download,
+  Microphone
+} from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 
 const showBanner = ref(false)
@@ -12,6 +22,8 @@ const currentDevice = ref<Device>()
 const currentChannel = ref<ChannelInfo>()
 const videoPlayerRef = ref()
 const volume = ref(100)
+const playbackSpeed = ref(1.0)
+const playbackSpeeds = [0.25, 0.5, 1.0, 2.0, 4.0, 8.0]
 
 const isPlaying = computed(() => videoPlayerRef.value?.isPlaying || false)
 
@@ -21,6 +33,31 @@ const handlePlay = () => {
 
 const handlePause = () => {
   videoPlayerRef.value?.pause()
+}
+
+const handleStop = () => {
+  videoPlayerRef.value?.stop()
+}
+
+const handleFastForward = () => {
+  const currentIndex = playbackSpeeds.indexOf(playbackSpeed.value)
+  if (currentIndex < playbackSpeeds.length - 1) {
+    playbackSpeed.value = playbackSpeeds[currentIndex + 1]
+    videoPlayerRef.value?.setPlaybackRate(playbackSpeed.value)
+  }
+}
+
+const handleSlowDown = () => {
+  const currentIndex = playbackSpeeds.indexOf(playbackSpeed.value)
+  if (currentIndex > 0) {
+    playbackSpeed.value = playbackSpeeds[currentIndex - 1]
+    videoPlayerRef.value?.setPlaybackRate(playbackSpeed.value)
+  }
+}
+
+const handleSpeedReset = () => {
+  playbackSpeed.value = 1.0
+  videoPlayerRef.value?.setPlaybackRate(1.0)
 }
 
 const handleDeviceSelect = (data: { device: Device | undefined; channel: ChannelInfo }) => {
@@ -135,35 +172,89 @@ const option = {
           </div>
         </div>
         <div class="control-panel">
-          <div class="control-buttons">
+          <div class="control-group">
             <el-button-group>
               <el-button
-                :icon="VideoPlay"
+                :icon="CaretRight"
                 :disabled="!currentChannel || isPlaying"
                 @click="handlePlay"
                 size="small"
+                title="播放"
               />
               <el-button
                 :icon="VideoPause"
                 :disabled="!currentChannel || !isPlaying"
                 @click="handlePause"
                 size="small"
+                title="暂停"
               />
-              <el-button :icon="VideoCamera" :disabled="!currentChannel" size="small" />
-              <el-button :icon="Download" :disabled="!currentChannel" size="small" />
+              <el-button
+                :icon="CircleClose"
+                :disabled="!currentChannel"
+                @click="handleStop"
+                size="small"
+                title="停止"
+              />
             </el-button-group>
+
+            <el-button-group>
+              <el-button
+                :icon="DArrowLeft"
+                :disabled="!currentChannel || playbackSpeed <= playbackSpeeds[0]"
+                @click="handleSlowDown"
+                size="small"
+                title="减速"
+              />
+              <el-button
+                :icon="Timer"
+                :disabled="!currentChannel"
+                @click="handleSpeedReset"
+                size="small"
+                :class="{ 'speed-active': playbackSpeed !== 1.0 }"
+                title="当前速度"
+              >
+                <span class="speed-text">{{ playbackSpeed }}x</span>
+              </el-button>
+              <el-button
+                :icon="DArrowRight"
+                :disabled="!currentChannel || playbackSpeed >= playbackSpeeds[playbackSpeeds.length - 1]"
+                @click="handleFastForward"
+                size="small"
+                title="加速"
+              />
+            </el-button-group>
+
+            <div class="time-info">
+              <span class="current-time">00:00:00</span>
+              <span class="time-separator">/</span>
+              <span class="total-time">00:00:00</span>
+            </div>
+
+            <el-button-group>
+              <el-button 
+                :icon="Picture" 
+                :disabled="!currentChannel" 
+                size="small"
+                title="截图"
+              />
+              <el-button 
+                :icon="Download" 
+                :disabled="!currentChannel" 
+                size="small"
+                title="下载"
+              />
+            </el-button-group>
+          </div>
+
+          <div class="volume-control">
+            <el-icon><Microphone /></el-icon>
             <el-slider
               v-model="volume"
               :max="100"
               :min="0"
               :disabled="!currentChannel"
               size="small"
-              style="width: 100px"
-            >
-              <template #prepend>
-                <el-icon><Microphone /></el-icon>
-              </template>
-            </el-slider>
+            />
           </div>
         </div>
       </div>
@@ -229,57 +320,107 @@ const option = {
   background-color: #1a1a1a;
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  gap: 24px;
 }
 
-.control-buttons {
+.control-group {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 0 0;
-  color: #fff;
+}
 
-  .el-button-group {
-    margin: 0 16px;
-    .el-button {
-      width: 32px;
-      height: 32px;
-      padding: 0;
-      --el-button-bg-color: transparent;
-      --el-button-border-color: transparent;
-      --el-button-hover-bg-color: rgba(255, 255, 255, 0.1);
-      --el-button-hover-border-color: transparent;
-      --el-button-active-bg-color: rgba(255, 255, 255, 0.2);
-      --el-button-text-color: #fff;
-      --el-button-disabled-text-color: rgba(255, 255, 255, 0.3);
-      --el-button-disabled-bg-color: transparent;
-      --el-button-disabled-border-color: transparent;
+.time-info {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.85);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+}
 
-      :deep(.el-icon) {
-        font-size: 16px;
-      }
+.time-separator {
+  color: rgba(255, 255, 255, 0.3);
+  margin: 0 2px;
+}
+
+.current-time {
+  color: var(--el-color-primary);
+}
+
+.total-time {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.volume-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 140px;
+  color: rgba(255, 255, 255, 0.8);
+  
+  :deep(.el-icon) {
+    font-size: 18px;
+  }
+}
+
+.el-button-group {
+  .el-button {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    --el-button-bg-color: transparent;
+    --el-button-border-color: transparent;
+    --el-button-hover-bg-color: rgba(255, 255, 255, 0.1);
+    --el-button-hover-border-color: transparent;
+    --el-button-active-bg-color: rgba(255, 255, 255, 0.15);
+    --el-button-text-color: rgba(255, 255, 255, 0.85);
+    --el-button-disabled-text-color: rgba(255, 255, 255, 0.3);
+    --el-button-disabled-bg-color: transparent;
+    --el-button-disabled-border-color: transparent;
+
+    :deep(.el-icon) {
+      font-size: 20px;
+    }
+
+    &:hover:not(:disabled) {
+      --el-button-text-color: var(--el-color-primary);
+    }
+
+    &:has(.speed-text) {
+      width: auto;
+      padding: 0 12px;
+    }
+  }
+}
+
+:deep(.el-slider) {
+  --el-slider-main-bg-color: var(--el-color-primary);
+  --el-slider-runway-bg-color: rgba(255, 255, 255, 0.15);
+  --el-slider-stop-bg-color: rgba(255, 255, 255, 0.2);
+  --el-slider-disabled-color: rgba(255, 255, 255, 0.1);
+  
+  .el-slider__runway {
+    height: 3px;
+  }
+  
+  .el-slider__button {
+    border: none;
+    width: 10px;
+    height: 10px;
+    background-color: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    transition: transform 0.2s ease;
+    
+    &:hover {
+      transform: scale(1.3);
     }
   }
 
-  :deep(.el-date-editor) {
-    --el-input-bg-color: transparent;
-    --el-input-border-color: rgba(255, 255, 255, 0.2);
-    --el-input-hover-border-color: rgba(255, 255, 255, 0.3);
-    --el-input-text-color: #fff;
-    --el-input-placeholder-color: rgba(255, 255, 255, 0.5);
-  }
-
-  :deep(.el-slider) {
-    --el-slider-main-bg-color: var(--el-color-primary);
-    --el-slider-runway-bg-color: rgba(255, 255, 255, 0.2);
-    --el-slider-stop-bg-color: rgba(255, 255, 255, 0.3);
-    --el-slider-disabled-color: rgba(255, 255, 255, 0.2);
-    .el-slider__runway {
-      height: 4px;
-    }
-    .el-slider__button {
-      border-color: var(--el-color-primary);
-      background-color: var(--el-color-primary);
-    }
+  .el-slider__bar {
+    height: 3px;
   }
 }
 
@@ -618,5 +759,16 @@ const option = {
     rgba(255, 255, 255, 0.1) 80%,
     transparent
   );
+}
+
+.speed-text {
+  font-size: 13px;
+  margin-left: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.speed-active {
+  --el-button-text-color: var(--el-color-primary) !important;
+  --el-button-bg-color: rgba(var(--el-color-primary-rgb), 0.1) !important;
 }
 </style>
