@@ -5,6 +5,7 @@ import VideoPlayer from '@/components/playback/VideoPlayer.vue'
 import DateTimeRangePanel from '@/components/common/DateTimeRangePanel.vue'
 import type { Device, ChannelInfo } from '@/types/api'
 import { VideoPlay, VideoPause, VideoCamera, Download, Microphone } from '@element-plus/icons-vue'
+import dayjs from 'dayjs'
 
 const showBanner = ref(false)
 const currentDevice = ref<Device>()
@@ -34,6 +35,31 @@ const handleSearch = ({ start, end }: { start: string; end: string }) => {
     end,
     channel: currentChannel.value
   })
+}
+
+const option = {
+  grid: {
+    left: '3%',
+    right: '3%',
+    bottom: '15%',
+    containLabel: true
+  },
+  xAxis: {
+    type: 'time',
+    min: dayjs().startOf('day').valueOf(),
+    max: dayjs().endOf('day').valueOf(),
+    axisLabel: {
+      formatter: (value: number) => {
+        return dayjs(value).format('HH:mm')
+      }
+    },
+    splitLine: {
+      show: true
+    },
+    axisTick: {
+      alignWithLabel: true
+    }
+  }
 }
 </script>
 
@@ -82,6 +108,30 @@ const handleSearch = ({ start, end }: { start: string; end: string }) => {
           />
           <div v-if="!currentChannel" class="placeholder">
             <el-empty description="请选择通道" />
+          </div>
+        </div>
+        <div class="timeline-panel">
+          <div class="timeline-ruler">
+            <div class="timeline-scale">
+              <div v-for="hour in 24" :key="hour" 
+                class="hour-mark"
+                :class="{
+                  'major-mark': (hour - 1) % 6 === 0,
+                  'medium-mark': (hour - 1) % 3 === 0 && (hour - 1) % 6 !== 0
+                }"
+              >
+                <div class="hour-label">{{ (hour - 1).toString().padStart(2, '0') }}:00</div>
+                <div class="hour-line"></div>
+                <div class="half-hour-mark"></div>
+              </div>
+              <div class="hour-mark major-mark" style="flex: 0 0 auto;">
+                <div class="hour-label">24:00</div>
+                <div class="hour-line"></div>
+              </div>
+            </div>
+            <div class="timeline-pointer" :style="{ left: '0%' }">
+              <div class="pointer-head"></div>
+            </div>
           </div>
         </div>
         <div class="control-panel">
@@ -390,5 +440,183 @@ const handleSearch = ({ start, end }: { start: string; end: string }) => {
   left: 0;
   right: 0;
   height: 20px;
+}
+
+.timeline-panel {
+  height: 60px;
+  background-color: #242424;
+  position: relative;
+  overflow: hidden;
+  user-select: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 8px 0;
+}
+
+.timeline-ruler {
+  height: 100%;
+  position: relative;
+  padding: 0 24px;
+  display: flex;
+  align-items: flex-end;
+}
+
+.timeline-scale {
+  height: 100%;
+  display: flex;
+  position: relative;
+  width: 100%;
+}
+
+.hour-mark {
+  flex: 1;
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.major-mark {
+  .hour-line {
+    height: 16px;
+    background-color: rgba(255, 255, 255, 0.4);
+    width: 2px;
+  }
+  
+  .hour-label {
+    color: rgba(255, 255, 255, 0.95);
+    font-weight: 500;
+    font-size: 12px;
+    bottom: 20px;
+  }
+}
+
+.medium-mark {
+  .hour-line {
+    height: 12px;
+    background-color: rgba(255, 255, 255, 0.25);
+    width: 1.5px;
+  }
+  
+  .hour-label {
+    color: rgba(255, 255, 255, 0.7);
+    bottom: 20px;
+  }
+}
+
+.hour-label {
+  position: absolute;
+  bottom: 20px;
+  left: 0;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  transform: translateX(-50%);
+  transition: color 0.2s ease;
+}
+
+.hour-line {
+  position: relative;
+  width: 1px;
+  height: 8px;
+  background-color: rgba(255, 255, 255, 0.15);
+  transition: all 0.2s ease;
+}
+
+.half-hour-mark {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 1px;
+  height: 6px;
+  background-color: rgba(255, 255, 255, 0.1);
+  transition: all 0.2s ease;
+}
+
+.timeline-pointer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background-color: var(--el-color-primary);
+  transform: translateX(-50%);
+  transition: all 0.2s ease;
+  
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 4px;
+    transform: translateX(-50%);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(var(--el-color-primary-rgb), 0.2),
+      transparent
+    );
+  }
+}
+
+.pointer-head {
+  position: absolute;
+  top: -1px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: var(--el-color-primary);
+  box-shadow: 0 0 6px rgba(var(--el-color-primary-rgb), 0.6);
+  transition: all 0.2s ease;
+  
+  &::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background-color: #fff;
+  }
+}
+
+.hour-mark:hover {
+  .hour-line {
+    height: 20px;
+    background-color: rgba(255, 255, 255, 0.5);
+  }
+  
+  .hour-label {
+    color: #fff;
+  }
+  
+  .half-hour-mark {
+    height: 10px;
+    background-color: rgba(255, 255, 255, 0.3);
+  }
+}
+
+.timeline-ruler:hover .timeline-pointer {
+  box-shadow: 0 0 8px rgba(var(--el-color-primary-rgb), 0.2);
+}
+
+.timeline-panel::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.1) 20%,
+    rgba(255, 255, 255, 0.1) 80%,
+    transparent
+  );
 }
 </style>
