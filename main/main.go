@@ -77,8 +77,6 @@ func main() {
 		}
 	}()
 
-	logger.Tf(ctx, "media server address is %v", conf.(*config.MainConfig).MediaAddr)
-
 	WaitTerminationSignal(cancel)
 
 	sipSvr.Stop()

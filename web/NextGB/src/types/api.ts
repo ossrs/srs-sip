@@ -8,10 +8,9 @@ export interface Device {
 }
 
 // API 响应类型
-export interface ApiResponse<T> {
+export interface ApiResponse<T = any> {
   code: number
   data: T
-  message: string
 }
 
 // 通道状态类型
@@ -44,15 +43,18 @@ export interface ChannelInfo {
   ssrc: string
 }
 
+// 媒体服务器类型
 export interface MediaServer {
-  id: string
+  id: number
   name: string
-  status: 'online' | 'offline'
   ip: string
   port: number
-  streams: number
-  clients: number
-  type: 'SRS' | 'OTHER' // 添加服务器类型
+  type: string
+  username?: string
+  password?: string
+  status: number
+  created_at: string
+  isDefault?: number
 }
 
 export interface PTZControlRequest {

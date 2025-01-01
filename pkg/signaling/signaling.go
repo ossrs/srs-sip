@@ -16,6 +16,7 @@ type ISignaling interface {
 	Publish(id, ssrc string) (int, error)
 	Unpublish(id string) error
 	GetStreamStatus(id string) (bool, error)
+	SetAddr(addr string)
 }
 
 // The r is HTTP API to request, like "http://localhost:1985/gb/v1/publish".

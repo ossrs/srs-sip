@@ -93,3 +93,7 @@ func (s *Srs) GetStreamStatus(id string) (bool, error) {
 	}
 	return false, nil
 }
+
+func (s *Srs) SetAddr(addr string) {
+	s.Addr = addr
+}

@@ -20,7 +20,6 @@ func Parse(ctx context.Context) interface{} {
 	fl.IntVar(&conf.SipPort, "sip-port", 5060, "The SIP port")
 	fl.BoolVar(&conf.EnableAuth, "enable-auth", false, "Enable authentication")
 	fl.StringVar(&conf.Password, "password", "123456", "The password")
-	fl.StringVar(&conf.MediaAddr, "media-addr", "127.0.0.1:1985", "The api address of media server. like: 127.0.0.1:1985")
 	fl.IntVar(&conf.HttpServerPort, "http-server-port", 8888, "The port of http server")
 	fl.IntVar(&conf.APIPort, "api-port", 2020, "The port of http api server")
 
@@ -30,12 +29,6 @@ func Parse(ctx context.Context) interface{} {
 
 	if err := fl.Parse(os.Args[1:]); err == flag.ErrHelp {
 		os.Exit(0)
-	}
-
-	showHelp := conf.MediaAddr == ""
-	if showHelp {
-		fl.Usage()
-		os.Exit(-1)
 	}
 
 	return &conf

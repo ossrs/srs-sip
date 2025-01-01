@@ -11,29 +11,22 @@ import (
 	"github.com/ossrs/srs-sip/pkg/utils"
 )
 
-func (s *UAS) AutoInvite(deviceID string, list ...ChannelInfo) {
-	for _, c := range list {
-		if c.Status == "ON" && utils.IsVideoChannel(c.DeviceID) {
-			if err := s.Invite(deviceID, c.DeviceID); err != nil {
-				logger.Ef(s.ctx, "invite error: %s", err.Error())
-			}
-		}
-	}
-}
-
-func (s *UAS) Invite(deviceID, channelID string) error {
+func (s *UAS) Invite(mediaServerAddr, deviceID, channelID string) error {
 	if s.isPublishing(channelID) {
 		return nil
 	}
 
 	ssrc := utils.CreateSSRC(true)
 
+	// 更新s.signal.Addr
+	s.signal.SetAddr("http://" + mediaServerAddr)
+
 	mediaPort, err := s.signal.Publish(ssrc, ssrc)
 	if err != nil {
 		return errors.Wrapf(err, "api gb publish request error")
 	}
 
-	mediaHost := strings.Split(s.conf.MediaAddr, ":")[0]
+	mediaHost := strings.Split(mediaServerAddr, ":")[0]
 	if mediaHost == "" {
 		return errors.Errorf("media host is empty")
 	}

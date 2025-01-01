@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { deviceApi } from '@/api'
 import type { Device, ChannelInfo } from '@/types/api'
 import { ElMessage } from 'element-plus'
-import { Search, Refresh, Expand, List } from '@element-plus/icons-vue'
+import { Search, Refresh, Expand, List, InfoFilled } from '@element-plus/icons-vue'
+import { useDevices, useChannels, useDevicesLoading, fetchDevicesAndChannels } from '@/stores/devices'
 
 interface DeviceNode {
   device_id: string
@@ -13,55 +13,40 @@ interface DeviceNode {
   channelInfo?: ChannelInfo
 }
 
-const devices = ref<Device[]>([])
-const deviceNodes = ref<DeviceNode[]>([])
-const loading = ref(false)
+const devices = useDevices()
+const channels = useChannels()
+const loading = useDevicesLoading()
 const searchQuery = ref('')
 const expandedKeys = ref<string[]>([])
 
-const formatDeviceData = (device: any): Device => {
-  return {
-    device_id: device.device_id,
-    source_addr: device.source_addr,
-    network_type: device.network_type,
-    status: 'online',
-    name: device.device_id,
-  }
-}
-
-const fetchDevices = async () => {
-  try {
-    loading.value = true
-    const response = await deviceApi.getDevices()
-    const deviceList = Array.isArray(response.data) ? response.data : []
-    devices.value = deviceList.map(formatDeviceData)
-
-    const nodes: DeviceNode[] = []
-    for (const device of devices.value) {
-      try {
-        const response = await deviceApi.getDeviceChannels(device.device_id)
-        const channelList = Array.isArray(response.data) ? response.data : []
-        const deviceNode: DeviceNode = {
-          device_id: device.device_id,
-          label: device.device_id,
-          children: channelList.map((channel: ChannelInfo) => ({
-            device_id: channel.device_id,
-            label: channel.name || channel.device_id,
-            isChannel: true,
-            channelInfo: channel
-          })),
-        }
-        nodes.push(deviceNode)
-      } catch (error) {
-        console.error(`获取设备 ${device.device_id} 的通道失败:`, error)
-      }
+const deviceNodes = computed(() => {
+  const nodes: DeviceNode[] = []
+  for (const device of devices.value) {
+    const deviceChannels = channels.value.filter(channel => channel.device_id === device.device_id)
+    const deviceNode: DeviceNode = {
+      device_id: device.device_id,
+      label: device.name || device.device_id,
+      children: deviceChannels.map((channel: ChannelInfo) => ({
+        device_id: channel.device_id,
+        label: `${channel.name} (${channel.manufacturer || '未知'})`,
+        isChannel: true,
+        channelInfo: channel
+      })),
     }
-    deviceNodes.value = nodes
-  } catch (error) {
-    console.error('获取设备列表失败:', error)
-  } finally {
-    loading.value = false
+    nodes.push(deviceNode)
   }
+  return nodes
+})
+
+const refreshDevices = async () => {
+  try {
+    if (devices.value.length === 0) {
+      await fetchDevicesAndChannels()
+    }
+  } catch (error) {
+    ElMessage.error('刷新设备列表失败')
+  }
+  tooltipRef.value?.hide()
 }
 
 const emit = defineEmits<{
@@ -72,7 +57,7 @@ const emit = defineEmits<{
 const handleSelect = (data: DeviceNode) => {
   if (data.isChannel && data.channelInfo) {
     emit('select', {
-      device: devices.value.find((d) => d.device_id === data.channelInfo?.device_id),
+      device: devices.value.find((d) => d.device_id === data.channelInfo?.parent_id),
       channel: data.channelInfo,
     })
   }
@@ -81,7 +66,7 @@ const handleSelect = (data: DeviceNode) => {
 const handleNodeDbClick = (data: DeviceNode) => {
   if (data.isChannel && data.channelInfo) {
     emit('play', {
-      device: devices.value.find((d) => d.device_id === data.channelInfo?.device_id),
+      device: devices.value.find((d) => d.device_id === data.channelInfo?.parent_id),
       channel: data.channelInfo,
     })
   }
@@ -90,10 +75,11 @@ const handleNodeDbClick = (data: DeviceNode) => {
 const viewMode = ref<'tree' | 'list'>('tree')
 
 const filteredData = computed(() => {
+  const nodes = deviceNodes.value
   const query = searchQuery.value.trim().toLowerCase()
 
   if (viewMode.value === 'list') {
-    const allChannels = deviceNodes.value.flatMap(node => 
+    const allChannels = nodes.flatMap(node => 
       (node.children || []).map(channel => ({
         ...channel,
         parentDeviceId: node.device_id
@@ -122,19 +108,19 @@ const filteredData = computed(() => {
 
   if (!query) {
     expandedKeys.value = []
-    return deviceNodes.value
+    return nodes
   }
 
   expandedKeys.value = ['root']
 
-  return deviceNodes.value.filter((node) => {
+  return nodes.filter((node) => {
     const searchNode = (item: any): boolean => {
       const isMatch =
         item.label?.toLowerCase().includes(query) || item.device_id?.toLowerCase().includes(query)
 
       if (isMatch) {
         if (item.isChannel) {
-          const parentDevice = deviceNodes.value.find((device) =>
+          const parentDevice = nodes.find((device) =>
             device.children?.some((channel) => channel.device_id === item.device_id),
           )
           if (parentDevice) {
@@ -160,14 +146,6 @@ const filteredData = computed(() => {
 
 const tooltipRef = ref()
 
-const refreshDevices = () => {
-  fetchDevices()
-  tooltipRef.value?.hide()
-}
-
-onMounted(() => {
-  fetchDevices()
-})
 </script>
 
 <template>
@@ -221,6 +199,21 @@ onMounted(() => {
         <span class="custom-tree-node" @dblclick.stop="handleNodeDbClick(data)">
           <span :class="data.isChannel ? 'channel-label' : 'device-label'">
             {{ data.label }}
+            <template v-if="data.isChannel && data.channelInfo">
+              <el-tooltip effect="dark" placement="right">
+                <template #content>
+                  <div>
+                    <p>设备ID: {{ data.channelInfo.device_id }}</p>
+                    <p>厂商: {{ data.channelInfo.manufacturer || '未知' }}</p>
+                    <p>型号: {{ data.channelInfo.model || '未知' }}</p>
+                    <p>地址: {{ data.channelInfo.address || '未知' }}</p>
+                    <p>PTZ类型: {{ data.channelInfo.info?.ptz_type || '无' }}</p>
+                    <p>分辨率: {{ data.channelInfo.info?.resolution || '未知' }}</p>
+                  </div>
+                </template>
+                <el-icon class="ml-2"><InfoFilled /></el-icon>
+              </el-tooltip>
+            </template>
           </span>
           <el-tag
             v-if="data.isChannel"
@@ -515,6 +508,21 @@ onMounted(() => {
 .search-wrapper {
   .el-button-group {
     margin-right: 8px;
+  }
+}
+
+.ml-2 {
+  margin-left: 8px;
+  font-size: 14px;
+  color: var(--el-text-color-secondary);
+  cursor: help;
+}
+
+.custom-tree-node {
+  .channel-label, .device-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
   }
 }
 </style>

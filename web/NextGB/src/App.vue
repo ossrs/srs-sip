@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, provide, onMounted } from 'vue'
 import {
   Monitor,
   Setting,
@@ -8,13 +8,38 @@ import {
   VideoCamera,
   User,
   VideoPlay,
+  DataLine,
 } from '@element-plus/icons-vue'
+import { useDefaultMediaServer } from '@/stores/mediaServer'
+import { fetchDevicesAndChannels } from '@/stores/devices'
+import { fetchMediaServers } from '@/stores/mediaServer'
 
 const isCollapse = ref(false)
 
 const toggleSidebar = () => {
   isCollapse.value = !isCollapse.value
 }
+
+// 提供默认媒体服务器
+const defaultMediaServer = useDefaultMediaServer()
+provide('defaultMediaServer', defaultMediaServer)
+
+// 初始化数据
+const initializeData = async () => {
+  try {
+    // 并行获取设备列表和媒体服务器列表
+    await Promise.all([
+      fetchDevicesAndChannels(),
+      fetchMediaServers()
+    ])
+  } catch (error) {
+    console.error('初始化数据失败:', error)
+  }
+}
+
+onMounted(() => {
+  initializeData()
+})
 </script>
 
 <template>
@@ -26,7 +51,12 @@ const toggleSidebar = () => {
         <span>demo</span>
       </div>
       <el-menu :collapse="isCollapse" default-active="1" class="sidebar-menu">
-        <el-menu-item index="1" @click="$router.push('/')">
+        <el-menu-item index="1" @click="$router.push('/dashboard')">
+          <el-icon><DataLine /></el-icon>
+          <span>系统概览</span>
+        </el-menu-item>
+
+        <el-menu-item index="2" @click="$router.push('/monitor')">
           <el-icon><Monitor /></el-icon>
           <span>实时监控</span>
         </el-menu-item>

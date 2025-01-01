@@ -1,16 +1,22 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
-import MediaServer from '../components/mediaserver/MediaServer.vue'
-import type { MediaServer as MediaServerType } from '@/types/api'
+import { Plus, Refresh } from '@element-plus/icons-vue'
+import MediaServerCard from '../components/mediaserver/MediaServerCard.vue'
+import type { MediaServer } from '@/types/api'
+import { mediaServerApi } from '@/api'
+import { 
+  useMediaServers,
+  useDefaultMediaServer,
+  fetchMediaServers,
+  setDefaultMediaServer,
+  deleteMediaServer,
+  checkServersStatus
+} from '@/stores/mediaServer'
 
-// 扩展 MediaServer 类型
-interface ExtendedMediaServer extends MediaServerType {
-  isDefault?: boolean
-}
-
-const mediaServers = ref<ExtendedMediaServer[]>([])
+const mediaServers = useMediaServers()
+const defaultMediaServer = useDefaultMediaServer()
+let statusCheckTimer: number | null = null
 
 // 表单校验规则
 const rules = {
@@ -32,54 +38,47 @@ const rules = {
       trigger: 'blur',
     },
   ],
+  type: [
+    { required: true, message: '请选择服务器类型', trigger: 'change' },
+  ],
 }
 
 const formRef = ref()
 const dialogVisible = ref(false)
-const newServer = ref<ExtendedMediaServer>({
-  id: '',
+const newServer = ref<Pick<MediaServer, 'name' | 'ip' | 'port' | 'type' | 'username' | 'password' | 'isDefault'>>({
   name: '',
-  status: 'offline',
   ip: '',
   port: 1985,
-  streams: 0,
-  clients: 0,
+  type: 'SRS',
+  username: '',
+  password: '',
   isDefault: false,
-  type: 'SRS', // 设置默认类型
 })
 
 const handleAdd = () => {
   dialogVisible.value = true
   // 重置表单
   newServer.value = {
-    id: '',
     name: '',
-    status: 'offline',
     ip: '',
     port: 1985,
-    streams: 0,
-    clients: 0,
+    type: 'SRS',
+    username: '',
+    password: '',
     isDefault: false,
-    type: 'SRS', // 设置默认类型
   }
 }
 
-const handleDelete = (server: ExtendedMediaServer) => {
-  ElMessage.success('删除成功')
-  mediaServers.value = mediaServers.value.filter((s) => s.id !== server.id)
+const handleDelete = async (server: MediaServer) => {
+  try {
+    await deleteMediaServer(server)
+  } catch (error) {
+    console.error('删除失败:', error)
+  }
 }
 
-const handleSetDefault = (server: ExtendedMediaServer) => {
-  // 先将所有服务器设为非默认
-  mediaServers.value.forEach((s) => {
-    s.isDefault = false
-  })
-  // 将选中的服务器设为默认
-  const targetServer = mediaServers.value.find((s) => s.id === server.id)
-  if (targetServer) {
-    targetServer.isDefault = true
-    ElMessage.success('已设为默认节点')
-  }
+const handleSetDefault = (server: MediaServer) => {
+  setDefaultMediaServer(server)
 }
 
 const submitForm = async () => {
@@ -87,22 +86,20 @@ const submitForm = async () => {
 
   try {
     await formRef.value.validate()
-
-    // 如果新节点设为默认，先将其他节点设为非默认
-    if (newServer.value.isDefault) {
-      mediaServers.value.forEach((s) => {
-        s.isDefault = false
-      })
-    }
-
-    mediaServers.value.push({
-      ...newServer.value,
-      id: Date.now().toString(),
+    await mediaServerApi.addMediaServer({
+      name: newServer.value.name,
+      ip: newServer.value.ip,
+      port: newServer.value.port,
+      type: newServer.value.type,
+      username: newServer.value.username,
+      password: newServer.value.password,
     })
+    
     dialogVisible.value = false
     ElMessage.success('添加成功')
+    await fetchMediaServers()
   } catch (error) {
-    console.error('表单验证失败:', error)
+    console.error('添加失败:', error)
   }
 }
 
@@ -110,6 +107,14 @@ const handleClose = () => {
   formRef.value?.resetFields()
   dialogVisible.value = false
 }
+
+// 组件挂载时获取数据
+onMounted(() => {
+  // 延迟3秒后获取服务器状态
+  setTimeout(() => {
+    checkServersStatus()
+  }, 3000)
+})
 </script>
 
 <template>
@@ -119,11 +124,14 @@ const handleClose = () => {
       <el-button type="primary" @click="handleAdd">
         <el-icon><Plus /></el-icon>新增节点
       </el-button>
+      <el-button @click="fetchMediaServers">
+        <el-icon><Refresh /></el-icon>刷新
+      </el-button>
     </div>
 
     <!-- 节点卡片列表 -->
     <div class="server-grid">
-      <MediaServer
+      <MediaServerCard
         v-for="server in mediaServers"
         :key="server.id"
         :server="server"
@@ -161,7 +169,7 @@ const handleClose = () => {
 
         <el-form-item label="服务器类型">
           <el-radio-group v-model="newServer.type">
-            <el-radio label="SRS">SRS</el-radio>
+            <el-radio value="SRS">SRS</el-radio>
           </el-radio-group>
         </el-form-item>
 
