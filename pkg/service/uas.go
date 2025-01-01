@@ -35,10 +35,8 @@ func NewUas() *UAS {
 
 func (s *UAS) Start(agent *sipgo.UserAgent, r0 interface{}) error {
 	ctx := context.Background()
-	conf := r0.(*config.MainConfig)
 	sig := &signaling.Srs{
-		Ctx:  ctx,
-		Addr: "http://" + conf.MediaAddr,
+		Ctx: ctx,
 	}
 	s.signal = sig
 	s.startSipServer(agent, ctx, r0)

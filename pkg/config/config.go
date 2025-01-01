@@ -14,9 +14,8 @@ type MainConfig struct {
 	EnableAuth bool   `ymal:"enable-auth"`
 	Password   string `ymal:"password"`
 
-	MediaAddr      string `ymal:"media-addr"`
-	HttpServerPort int    `ymal:"http-server-port"`
-	APIPort        int    `ymal:"api-port"`
+	HttpServerPort int `ymal:"http-server-port"`
+	APIPort        int `ymal:"api-port"`
 }
 
 func GetLocalIP() (string, error) {

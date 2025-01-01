@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import DeviceTree from '@/components/monitor/DeviceTree.vue'
-import VideoPlayer from '@/components/playback/VideoPlayer.vue'
+import MonitorGrid from '@/components/monitor/MonitorGrid.vue'
 import DateTimeRangePanel from '@/components/common/DateTimeRangePanel.vue'
 import type { Device, ChannelInfo } from '@/types/api'
+import type { LayoutConfig } from '@/types/layout'
 import {
   CaretRight,
   VideoPause,
@@ -16,54 +17,82 @@ import {
   Microphone
 } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
-const showBanner = ref(false)
+type LayoutKey = '1'
+type LayoutConfigs = Record<LayoutKey, LayoutConfig>
+
+// 布局配置
+const layouts: LayoutConfigs = {
+  '1': { cols: 1, rows: 1, size: 1, label: '单屏' },
+} as const
+
+const monitorGridRef = ref()
 const currentDevice = ref<Device>()
 const currentChannel = ref<ChannelInfo>()
-const videoPlayerRef = ref()
 const volume = ref(100)
 const playbackSpeed = ref(1.0)
 const playbackSpeeds = [0.25, 0.5, 1.0, 2.0, 4.0, 8.0]
+const currentLayout = ref<'1'>('1') // 固定为单屏模式
+const defaultMuted = ref(true)
+const activeWindow = ref<{ deviceId: string; channelId: string } | null>(null)
 
-const isPlaying = computed(() => videoPlayerRef.value?.isPlaying || false)
+// 时间轴刻度显示控制
+const timelineWidth = ref(0)
+const showAllLabels = computed(() => timelineWidth.value >= 720) // 当宽度大于720px时显示所有标签
+const showMediumLabels = computed(() => timelineWidth.value >= 480) // 当宽度大于480px时显示中等标签
 
-const handlePlay = () => {
-  videoPlayerRef.value?.play()
-}
+// 屏幕尺寸类型
+const screenType = computed(() => {
+  if (timelineWidth.value >= 720) return '大屏'
+  if (timelineWidth.value >= 480) return '中屏'
+  return '小屏'
+})
 
-const handlePause = () => {
-  videoPlayerRef.value?.pause()
-}
+// 根据屏幕宽度调整时间轴高度
+const timelineHeight = computed(() => {
+  if (timelineWidth.value >= 720) return 60
+  if (timelineWidth.value >= 480) return 48
+  return 36
+})
 
-const handleStop = () => {
-  videoPlayerRef.value?.stop()
-}
-
-const handleFastForward = () => {
-  const currentIndex = playbackSpeeds.indexOf(playbackSpeed.value)
-  if (currentIndex < playbackSpeeds.length - 1) {
-    playbackSpeed.value = playbackSpeeds[currentIndex + 1]
-    videoPlayerRef.value?.setPlaybackRate(playbackSpeed.value)
+// 监听时间轴宽度变化
+const updateTimelineWidth = () => {
+  const timeline = document.querySelector('.timeline-scale')
+  if (timeline) {
+    timelineWidth.value = timeline.clientWidth
+    console.log(`时间轴宽度: ${timelineWidth.value}px, 当前屏幕: ${screenType.value}`)
   }
 }
 
-const handleSlowDown = () => {
-  const currentIndex = playbackSpeeds.indexOf(playbackSpeed.value)
-  if (currentIndex > 0) {
-    playbackSpeed.value = playbackSpeeds[currentIndex - 1]
-    videoPlayerRef.value?.setPlaybackRate(playbackSpeed.value)
-  }
-}
+// 监听窗口大小变化
+onMounted(() => {
+  updateTimelineWidth()
+  window.addEventListener('resize', updateTimelineWidth)
+})
 
-const handleSpeedReset = () => {
-  playbackSpeed.value = 1.0
-  videoPlayerRef.value?.setPlaybackRate(1.0)
-}
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateTimelineWidth)
+})
 
 const handleDeviceSelect = (data: { device: Device | undefined; channel: ChannelInfo }) => {
   currentDevice.value = data.device
   currentChannel.value = data.channel
-  videoPlayerRef.value?.pause()
+}
+
+const handleDevicePlay = (data: { device: Device | undefined; channel: ChannelInfo }) => {
+  if (data.channel.device_id) {
+    monitorGridRef.value?.play({
+      ...data.device,
+      channel: data.channel,
+    })
+  } else {
+    ElMessage.warning('设备信息不完整')
+  }
+}
+
+const handleWindowSelect = (data: { deviceId: string; channelId: string } | null) => {
+  activeWindow.value = data
 }
 
 const handleSearch = ({ start, end }: { start: string; end: string }) => {
@@ -74,36 +103,18 @@ const handleSearch = ({ start, end }: { start: string; end: string }) => {
   })
 }
 
-const option = {
-  grid: {
-    left: '3%',
-    right: '3%',
-    bottom: '15%',
-    containLabel: true
-  },
-  xAxis: {
-    type: 'time',
-    min: dayjs().startOf('day').valueOf(),
-    max: dayjs().endOf('day').valueOf(),
-    axisLabel: {
-      formatter: (value: number) => {
-        return dayjs(value).format('HH:mm')
-      }
-    },
-    splitLine: {
-      show: true
-    },
-    axisTick: {
-      alignWithLabel: true
-    }
-  }
+const clearAllDevices = () => {
+  monitorGridRef.value?.clearAllDevices()
 }
 </script>
 
 <template>
   <div class="playback-container">
     <div class="left-panel">
-      <DeviceTree @select="handleDeviceSelect" />
+      <DeviceTree 
+        @select="handleDeviceSelect"
+        @play="handleDevicePlay"
+      />
       <DateTimeRangePanel
         title="录像查询"
         @search="handleSearch"
@@ -111,53 +122,30 @@ const option = {
     </div>
     <div class="right-panel">
       <div class="playback-panel">
-        <div class="video-container">
-          <div
-            class="video-banner"
-            :class="{ show: showBanner }"
-            @mouseenter="showBanner = true"
-            @mouseleave="showBanner = false"
-          >
-            <div class="banner-content">
-              <div class="info-item">
-                <span class="label">码率：</span>
-                <span class="value">2048 Kbps</span>
-              </div>
-              <div class="info-item">
-                <span class="label">编码：</span>
-                <span class="value">H.264</span>
-              </div>
-              <div class="info-item">
-                <span class="label">分辨率：</span>
-                <span class="value">1920×1080</span>
-              </div>
-              <div class="info-item">
-                <span class="label">帧率：</span>
-                <span class="value">25fps</span>
-              </div>
-            </div>
-          </div>
-          <VideoPlayer
-            v-if="currentChannel"
-            ref="videoPlayerRef"
-            :device="currentDevice"
-            :channel="currentChannel"
-          />
-          <div v-if="!currentChannel" class="placeholder">
-            <el-empty description="请选择通道" />
-          </div>
-        </div>
-        <div class="timeline-panel">
+        <MonitorGrid 
+          ref="monitorGridRef" 
+          v-model="currentLayout"
+          :layouts="layouts"
+          :default-muted="defaultMuted"
+          @window-select="handleWindowSelect"
+        />
+        <div class="timeline-panel" :style="{ height: `${timelineHeight}px` }">
           <div class="timeline-ruler">
             <div class="timeline-scale">
               <div v-for="hour in 24" :key="hour" 
                 class="hour-mark"
                 :class="{
                   'major-mark': (hour - 1) % 6 === 0,
-                  'medium-mark': (hour - 1) % 3 === 0 && (hour - 1) % 6 !== 0
+                  'medium-mark': (hour - 1) % 3 === 0 && (hour - 1) % 6 !== 0,
+                  'minor-mark': (hour - 1) % 3 !== 0
                 }"
               >
-                <div class="hour-label">{{ (hour - 1).toString().padStart(2, '0') }}:00</div>
+                <div 
+                  v-if="(hour - 1) % 6 === 0 || (showMediumLabels && (hour - 1) % 3 === 0) || showAllLabels"
+                  class="hour-label"
+                >
+                  {{ (hour - 1).toString().padStart(2, '0') }}:00
+                </div>
                 <div class="hour-line"></div>
                 <div class="half-hour-mark"></div>
               </div>
@@ -176,22 +164,20 @@ const option = {
             <el-button-group>
               <el-button
                 :icon="CaretRight"
-                :disabled="!currentChannel || isPlaying"
-                @click="handlePlay"
+                :disabled="!activeWindow"
                 size="small"
                 title="播放"
               />
               <el-button
                 :icon="VideoPause"
-                :disabled="!currentChannel || !isPlaying"
-                @click="handlePause"
+                :disabled="!activeWindow"
                 size="small"
                 title="暂停"
               />
               <el-button
                 :icon="CircleClose"
-                :disabled="!currentChannel"
-                @click="handleStop"
+                :disabled="!activeWindow"
+                @click="clearAllDevices"
                 size="small"
                 title="停止"
               />
@@ -200,15 +186,15 @@ const option = {
             <el-button-group>
               <el-button
                 :icon="DArrowLeft"
-                :disabled="!currentChannel || playbackSpeed <= playbackSpeeds[0]"
-                @click="handleSlowDown"
+                :disabled="!activeWindow || playbackSpeed <= playbackSpeeds[0]"
+                @click="playbackSpeed = Math.max(playbackSpeed / 2, playbackSpeeds[0])"
                 size="small"
                 title="减速"
               />
               <el-button
                 :icon="Timer"
-                :disabled="!currentChannel"
-                @click="handleSpeedReset"
+                :disabled="!activeWindow"
+                @click="playbackSpeed = 1.0"
                 size="small"
                 :class="{ 'speed-active': playbackSpeed !== 1.0 }"
                 title="当前速度"
@@ -217,8 +203,8 @@ const option = {
               </el-button>
               <el-button
                 :icon="DArrowRight"
-                :disabled="!currentChannel || playbackSpeed >= playbackSpeeds[playbackSpeeds.length - 1]"
-                @click="handleFastForward"
+                :disabled="!activeWindow || playbackSpeed >= playbackSpeeds[playbackSpeeds.length - 1]"
+                @click="playbackSpeed = Math.min(playbackSpeed * 2, playbackSpeeds[playbackSpeeds.length - 1])"
                 size="small"
                 title="加速"
               />
@@ -233,13 +219,13 @@ const option = {
             <el-button-group>
               <el-button 
                 :icon="Picture" 
-                :disabled="!currentChannel" 
+                :disabled="!activeWindow" 
                 size="small"
                 title="截图"
               />
               <el-button 
                 :icon="Download" 
-                :disabled="!currentChannel" 
+                :disabled="!activeWindow" 
                 size="small"
                 title="下载"
               />
@@ -252,7 +238,7 @@ const option = {
               v-model="volume"
               :max="100"
               :min="0"
-              :disabled="!currentChannel"
+              :disabled="!activeWindow"
               size="small"
             />
           </div>
@@ -289,30 +275,6 @@ const option = {
   height: 100%;
   display: flex;
   flex-direction: column;
-}
-
-.video-container {
-  flex: 1;
-  background-color: #000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  aspect-ratio: 16/9;
-  position: relative;
-  overflow: hidden;
-}
-
-.placeholder {
-  width: 100%;
-  height: 100%;
-  color: #909399;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  :deep(.el-empty) {
-    color: #909399;
-  }
 }
 
 .control-panel {
@@ -424,170 +386,32 @@ const option = {
   }
 }
 
-.search-panel {
-  background-color: var(--el-bg-color);
-  border-radius: var(--el-border-radius-base);
-  box-shadow: var(--el-box-shadow-lighter);
-}
-
-.search-panel-header {
-  padding: 8px 12px;
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  user-select: none;
-  
-  &:hover {
-    background-color: var(--el-fill-color-light);
-  }
-}
-
-.header-title {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+.speed-text {
   font-size: 13px;
-  color: var(--el-text-color-primary);
+  margin-left: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
-.collapse-arrow {
-  font-size: 12px;
-  transition: transform 0.2s ease;
-  color: var(--el-text-color-secondary);
-  
-  &.collapsed {
-    transform: rotate(-90deg);
-  }
+.speed-active {
+  --el-button-text-color: var(--el-color-primary) !important;
+  --el-button-bg-color: rgba(var(--el-color-primary-rgb), 0.1) !important;
 }
 
-.title-icon {
-  font-size: 14px;
-  color: var(--el-color-primary);
-}
-
-.search-panel-content {
-  transition: all 0.2s ease;
-  overflow: hidden;
-}
-
-.search-panel.collapsed .search-panel-content {
-  height: 0;
-  padding: 0;
-  opacity: 0;
-}
-
-.datetime-range {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  width: 100%;
-}
-
-.datetime-item {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.datetime-label {
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
-  padding-left: 4px;
-}
-
-.shortcuts {
-  display: flex;
-  gap: 8px;
-  padding: 0 4px;
-  
-  :deep(.el-button) {
-    height: 24px;
-    padding: 0 8px;
-    
-    &.is-disabled {
-      color: var(--el-text-color-disabled);
-    }
-  }
-}
-
-.calendar-wrapper {
-  :deep(.el-input__wrapper) {
-    padding: 0 8px;
-    height: 32px;
-  }
-  
-  :deep(.el-input__inner) {
-    font-size: 13px;
-  }
-  
-  :deep(.el-date-editor) {
-    --el-date-editor-width: 100%;
-  }
-}
-
-.search-form {
-  padding: 12px;
-}
-
-:deep(.el-picker-panel) {
-  --el-datepicker-border-color: var(--el-border-color-lighter);
-}
-
-.video-banner {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 40px;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0));
-  transform: translateY(-100%);
-  transition: transform 0.3s ease;
-  z-index: 10;
-  padding: 8px 16px;
-  color: #fff;
-}
-
-.video-banner.show {
-  transform: translateY(0);
-}
-
-.banner-content {
-  display: flex;
-  align-items: center;
-  gap: 24px;
-  height: 100%;
-}
-
-.info-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 13px;
-}
-
-.info-item .label {
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.info-item .value {
-  color: #fff;
-  font-family: monospace;
-}
-
-.video-banner::before {
-  content: '';
-  position: absolute;
-  top: -20px;
-  left: 0;
-  right: 0;
-  height: 20px;
+:deep(.el-radio-group) {
+  --el-button-bg-color: var(--el-fill-color-blank);
+  --el-button-hover-bg-color: var(--el-fill-color);
+  --el-button-active-bg-color: var(--el-color-primary);
+  --el-button-text-color: var(--el-text-color-regular);
+  --el-button-hover-text-color: var(--el-text-color-primary);
+  --el-button-active-text-color: #fff;
+  --el-button-border-color: var(--el-border-color);
+  --el-button-hover-border-color: var(--el-border-color-hover);
 }
 
 .timeline-panel {
-  height: 60px;
   background-color: #242424;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   user-select: none;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   padding: 8px 0;
@@ -615,45 +439,19 @@ const option = {
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-}
-
-.major-mark {
-  .hour-line {
-    height: 16px;
-    background-color: rgba(255, 255, 255, 0.4);
-    width: 2px;
-  }
-  
-  .hour-label {
-    color: rgba(255, 255, 255, 0.95);
-    font-weight: 500;
-    font-size: 12px;
-    bottom: 20px;
-  }
-}
-
-.medium-mark {
-  .hour-line {
-    height: 12px;
-    background-color: rgba(255, 255, 255, 0.25);
-    width: 1.5px;
-  }
-  
-  .hour-label {
-    color: rgba(255, 255, 255, 0.7);
-    bottom: 20px;
-  }
+  padding-top: 16px;
 }
 
 .hour-label {
   position: absolute;
-  bottom: 20px;
   left: 0;
+  top: 0;
   font-size: 11px;
   color: rgba(255, 255, 255, 0.4);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   transform: translateX(-50%);
-  transition: color 0.2s ease;
+  white-space: nowrap;
+  line-height: 1;
 }
 
 .hour-line {
@@ -661,7 +459,6 @@ const option = {
   width: 1px;
   height: 8px;
   background-color: rgba(255, 255, 255, 0.15);
-  transition: all 0.2s ease;
 }
 
 .half-hour-mark {
@@ -671,7 +468,6 @@ const option = {
   width: 1px;
   height: 6px;
   background-color: rgba(255, 255, 255, 0.1);
-  transition: all 0.2s ease;
 }
 
 .timeline-pointer {
@@ -681,7 +477,6 @@ const option = {
   width: 2px;
   background-color: var(--el-color-primary);
   transform: translateX(-50%);
-  transition: all 0.2s ease;
   
   &::after {
     content: '';
@@ -710,7 +505,6 @@ const option = {
   border-radius: 50%;
   background-color: var(--el-color-primary);
   box-shadow: 0 0 6px rgba(var(--el-color-primary-rgb), 0.6);
-  transition: all 0.2s ease;
   
   &::after {
     content: '';
@@ -725,19 +519,43 @@ const option = {
   }
 }
 
-.hour-mark:hover {
+.major-mark {
   .hour-line {
-    height: 20px;
-    background-color: rgba(255, 255, 255, 0.5);
+    height: 16px;
+    background-color: rgba(255, 255, 255, 0.4);
+    width: 2px;
   }
   
   .hour-label {
-    color: #fff;
+    color: rgba(255, 255, 255, 0.95);
+    font-weight: 500;
+    font-size: 12px;
+  }
+}
+
+.medium-mark {
+  .hour-line {
+    height: 12px;
+    background-color: rgba(255, 255, 255, 0.25);
+    width: 1.5px;
   }
   
-  .half-hour-mark {
-    height: 10px;
-    background-color: rgba(255, 255, 255, 0.3);
+  .hour-label {
+    color: rgba(255, 255, 255, 0.7);
+  }
+}
+
+.minor-mark {
+  .hour-line {
+    height: 8px;
+    background-color: rgba(255, 255, 255, 0.15);
+    width: 1px;
+  }
+  
+  .hour-label {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 10px;
+    opacity: 0.8;
   }
 }
 
@@ -759,16 +577,5 @@ const option = {
     rgba(255, 255, 255, 0.1) 80%,
     transparent
   );
-}
-
-.speed-text {
-  font-size: 13px;
-  margin-left: 6px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-}
-
-.speed-active {
-  --el-button-text-color: var(--el-color-primary) !important;
-  --el-button-bg-color: rgba(var(--el-color-primary-rgb), 0.1) !important;
 }
 </style>

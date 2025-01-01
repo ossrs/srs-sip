@@ -11,7 +11,7 @@
             "mode": "auto",
             "program": "${workspaceFolder}/main",
             "env": {},
-            "args": ["-sip-port", "5080", "-media-addr", "127.0.0.1:1985"]
+            "args": ["-sip-port", "5080"]
         }
     ]
 }

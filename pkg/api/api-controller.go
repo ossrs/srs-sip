@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/gorilla/mux"
 	"github.com/ossrs/srs-sip/pkg/service"
@@ -23,7 +24,11 @@ func (h *HttpApiServer) RegisterRoutes(router *mux.Router) {
 	apiV1Router.HandleFunc("/bye", h.ApiBye).Methods(http.MethodPost)
 	apiV1Router.HandleFunc("/ptz", h.ApiPTZControl).Methods(http.MethodPost)
 
-	apiV1Router.HandleFunc("/media-server", h.ApiGetMediaServer).Methods(http.MethodGet)
+	// 媒体服务器相关接口，查询，新增，删除，用restful风格
+	apiV1Router.HandleFunc("/media-servers", h.ApiListMediaServers).Methods(http.MethodGet)
+	apiV1Router.HandleFunc("/media-servers", h.ApiAddMediaServer).Methods(http.MethodPost)
+	apiV1Router.HandleFunc("/media-servers/{id}", h.ApiDeleteMediaServer).Methods(http.MethodDelete)
+	apiV1Router.HandleFunc("/media-servers/default/{id}", h.ApiSetDefaultMediaServer).Methods(http.MethodPost)
 
 	apiV1Router.HandleFunc("", h.GetAPIRoutes(apiV1Router)).Methods(http.MethodGet)
 
@@ -91,7 +96,7 @@ func (h *HttpApiServer) ApiGetAllChannels(w http.ResponseWriter, r *http.Request
 	h.RespondWithJSON(w, 0, channels)
 }
 
-// request: {"device_id": "1", "channel_id": "1", "sub_stream": 0}
+// request: {"media_server_addr": "192.168.1.1:1935", "device_id": "1", "channel_id": "1", "sub_stream": 0}
 // response: {"code": 0, "data": {"channel_id": "1", "url": "webrtc://"}}
 func (h *HttpApiServer) ApiInvite(w http.ResponseWriter, r *http.Request) {
 	// Parse request
@@ -102,7 +107,7 @@ func (h *HttpApiServer) ApiInvite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get device and channel
+	mediaServerAddr := req["media_server_addr"]
 	deviceID := req["device_id"]
 	channelID := req["channel_id"]
 	//subStream := req["sub_stream"]
@@ -118,7 +123,7 @@ func (h *HttpApiServer) ApiInvite(w http.ResponseWriter, r *http.Request) {
 		h.RespondWithJSON(w, code, data)
 	}()
 
-	if err := h.sipSvr.Uas.Invite(deviceID, channelID); err != nil {
+	if err := h.sipSvr.Uas.Invite(mediaServerAddr, deviceID, channelID); err != nil {
 		code = http.StatusInternalServerError
 		return
 	}
@@ -127,7 +132,7 @@ func (h *HttpApiServer) ApiInvite(w http.ResponseWriter, r *http.Request) {
 		code = http.StatusInternalServerError
 		return
 	}
-	url = "webrtc://" + h.conf.MediaAddr + "/live/" + c.Ssrc
+	url = "webrtc://" + mediaServerAddr + "/live/" + c.Ssrc
 }
 
 func (h *HttpApiServer) ApiBye(w http.ResponseWriter, r *http.Request) {
@@ -160,9 +165,76 @@ func (h *HttpApiServer) ApiPTZControl(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func (h *HttpApiServer) ApiGetMediaServer(w http.ResponseWriter, r *http.Request) {
-	h.RespondWithJSON(w, 0, map[string]string{
-		"type":    "srs",
-		"address": h.conf.MediaAddr,
-	})
+func (h *HttpApiServer) ApiListMediaServers(w http.ResponseWriter, r *http.Request) {
+	servers, err := h.mediaDB.ListMediaServers()
+	if err != nil {
+		h.RespondWithJSON(w, http.StatusInternalServerError, map[string]string{"msg": err.Error()})
+		return
+	}
+
+	h.RespondWithJSON(w, 0, servers)
+}
+
+// request: {"name": "srs1", "ip": "192.168.1.100", "port": 1935, "type": "SRS", "username": "admin", "password": "123456"}
+func (h *HttpApiServer) ApiAddMediaServer(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Name      string `json:"name"`
+		IP        string `json:"ip"`
+		Port      int    `json:"port"`
+		Type      string `json:"type"`
+		Username  string `json:"username"`
+		Password  string `json:"password"`
+		IsDefault int    `json:"is_default"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.RespondWithJSON(w, http.StatusBadRequest, map[string]string{"msg": "invalid request"})
+		return
+	}
+
+	// 验证必填字段
+	if req.Name == "" || req.IP == "" || req.Port == 0 || req.Type == "" {
+		h.RespondWithJSON(w, http.StatusBadRequest, map[string]string{"msg": "name, ip, port and type are required"})
+		return
+	}
+
+	// 添加到数据库
+	if err := h.mediaDB.AddMediaServer(req.Name, req.IP, req.Port, req.Username, req.Password, req.Type, req.IsDefault); err != nil {
+		h.RespondWithJSON(w, http.StatusInternalServerError, map[string]string{"msg": err.Error()})
+		return
+	}
+
+	h.RespondWithJSON(w, 0, map[string]string{"msg": "success"})
+}
+
+func (h *HttpApiServer) ApiDeleteMediaServer(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		h.RespondWithJSON(w, http.StatusBadRequest, map[string]string{"msg": "invalid id"})
+		return
+	}
+
+	if err := h.mediaDB.DeleteMediaServer(id); err != nil {
+		h.RespondWithJSON(w, http.StatusInternalServerError, map[string]string{"msg": err.Error()})
+		return
+	}
+
+	h.RespondWithJSON(w, 0, map[string]string{"msg": "success"})
+}
+
+func (h *HttpApiServer) ApiSetDefaultMediaServer(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		h.RespondWithJSON(w, http.StatusBadRequest, map[string]string{"msg": "invalid id"})
+		return
+	}
+
+	if err := h.mediaDB.SetDefaultMediaServer(id); err != nil {
+		h.RespondWithJSON(w, http.StatusInternalServerError, map[string]string{"msg": err.Error()})
+		return
+	}
+
+	h.RespondWithJSON(w, 0, map[string]string{"msg": "success"})
 }
