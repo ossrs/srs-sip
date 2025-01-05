@@ -52,7 +52,7 @@ const newServer = ref<Pick<MediaServer, 'name' | 'ip' | 'port' | 'type' | 'usern
   type: 'SRS',
   username: '',
   password: '',
-  isDefault: false,
+  isDefault: 0,
 })
 
 const handleAdd = () => {
@@ -65,7 +65,7 @@ const handleAdd = () => {
     type: 'SRS',
     username: '',
     password: '',
-    isDefault: false,
+    isDefault: 0,
   }
 }
 
