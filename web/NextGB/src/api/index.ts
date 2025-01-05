@@ -1,6 +1,6 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
-import type { Device, ApiResponse, ChannelInfo, MediaServer } from '@/types/api'
+import type { Device, ApiResponse, ChannelInfo, MediaServer, RecordInfo } from '@/types/api'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_APP_API_BASE_URL,
@@ -54,12 +54,19 @@ export const deviceApi = {
     media_server_addr: string
     device_id: string
     channel_id: string
-    sub_stream: string
+    sub_stream: number
+    play_type: number
+    start_time: number
+    end_time: number
   }) => api.post<ApiResponse<any>>('/srs-sip/v1/invite', params),
 
   // 云台控制
   controlPTZ: (params: { device_id: string; channel_id: string; ptz: string; speed: string }) =>
     api.post<ApiResponse<any>>('/srs-sip/v1/ptz', params),
+
+  // 查询录像
+  queryRecord: (params: { device_id: string; channel_id: string; start_time: number; end_time: number }) =>
+    api.post<ApiResponse<RecordInfo[]>>('/srs-sip/v1/query-record', params),
 }
 
 // 请求拦截器
@@ -76,12 +83,13 @@ api.interceptors.request.use(
 // 响应拦截器
 api.interceptors.response.use(
   (response) => {
-    const res = response.data
+    const res = response.data as ApiResponse<any>
     if (res.code !== 0) {
-      ElMessage.error(res.message || '请求失败')
-      return Promise.reject(new Error(res.message || '请求失败'))
+      ElMessage.error('请求失败')
+      return Promise.reject(new Error('请求失败'))
     }
-    return res
+    response.data = res.data
+    return response
   },
   (error) => {
     ElMessage.error(error.response?.data?.message || '网络错误')

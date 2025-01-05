@@ -119,8 +119,8 @@ func (s *UAS) onMessage(req *sip.Request, tx sip.ServerTransaction) {
 		Model        string
 		Channel      string
 		DeviceList   []ChannelInfo `xml:"DeviceList>Item"`
-		// RecordList   []*Record     `xml:"RecordList>Item"`
-		// SumNum       int
+		RecordList   []*Record     `xml:"RecordList>Item"`
+		SumNum       int
 	}{}
 	decoder := xml.NewDecoder(bytes.NewReader([]byte(req.Body())))
 	decoder.CharsetReader = charset.NewReaderLabel
@@ -143,6 +143,14 @@ func (s *UAS) onMessage(req *sip.Request, tx sip.ServerTransaction) {
 		//go s.AutoInvite(temp.DeviceID, temp.DeviceList...)
 	case "Alarm":
 		logger.T(s.ctx, "Alarm")
+	case "RecordInfo":
+		logger.T(s.ctx, "RecordInfo")
+		// 从 recordQueryResults 中获取对应通道的结果通道
+		if ch, ok := s.recordQueryResults.Load(temp.DeviceID); ok {
+			// 发送查询结果
+			resultChan := ch.(chan []*Record)
+			resultChan <- temp.RecordList
+		}
 	default:
 		logger.Wf(s.ctx, "Not supported CmdType: %s", temp.CmdType)
 		response := sip.NewResponseFromRequest(req, http.StatusBadRequest, "", nil)

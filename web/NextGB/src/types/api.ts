@@ -1,12 +1,3 @@
-// 设备相关类型
-export interface Device {
-  device_id: string
-  source_addr: string
-  network_type: string
-  status: 'online' | 'offline'
-  name: string
-}
-
 // API 响应类型
 export interface ApiResponse<T = any> {
   code: number
@@ -41,6 +32,25 @@ export interface ChannelInfo {
     download_speed: string
   }
   ssrc: string
+}
+
+export interface RecordInfo {
+  device_id: string
+  name: string
+  file_path: string
+  address: string
+  start_time: string
+  end_time: string
+  secrecy: number
+  type: string
+}
+
+export interface Device {
+  device_id: string
+  source_addr: string
+  network_type: string
+  status: number
+  name: string
 }
 
 // 媒体服务器类型

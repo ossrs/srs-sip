@@ -14,7 +14,7 @@ const formatDeviceData = (device: any): Device => {
     device_id: device.device_id,
     source_addr: device.source_addr,
     network_type: device.network_type,
-    status: 'online',
+    status: 1,
     name: device.device_id,
   }
 }
@@ -37,9 +37,9 @@ export const fetchDevicesAndChannels = async () => {
           // 确保每个通道都有正确的设备ID和其他必要属性
           const deviceChannels = response.data.map((channel: any) => ({
             ...channel,
-            device_id: device.device_id,
+            device_id: channel.device_id,
             status: channel.status || 'OFF',
-            name: channel.name || channel.device_id,
+            name: channel.name || '未命名',
             parent_id: device.device_id,
             info: {
               ...channel.info,

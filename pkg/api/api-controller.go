@@ -24,6 +24,8 @@ func (h *HttpApiServer) RegisterRoutes(router *mux.Router) {
 	apiV1Router.HandleFunc("/bye", h.ApiBye).Methods(http.MethodPost)
 	apiV1Router.HandleFunc("/ptz", h.ApiPTZControl).Methods(http.MethodPost)
 
+	apiV1Router.HandleFunc("/query-record", h.ApiQueryRecord).Methods(http.MethodPost)
+
 	// 媒体服务器相关接口，查询，新增，删除，用restful风格
 	apiV1Router.HandleFunc("/media-servers", h.ApiListMediaServers).Methods(http.MethodGet)
 	apiV1Router.HandleFunc("/media-servers", h.ApiAddMediaServer).Methods(http.MethodPost)
@@ -100,39 +102,34 @@ func (h *HttpApiServer) ApiGetAllChannels(w http.ResponseWriter, r *http.Request
 // response: {"code": 0, "data": {"channel_id": "1", "url": "webrtc://"}}
 func (h *HttpApiServer) ApiInvite(w http.ResponseWriter, r *http.Request) {
 	// Parse request
-	var req map[string]string
+	var req InviteRequest
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	mediaServerAddr := req["media_server_addr"]
-	deviceID := req["device_id"]
-	channelID := req["channel_id"]
-	//subStream := req["sub_stream"]
-
 	code := 0
 	url := ""
 
 	defer func() {
-		data := map[string]string{
-			"channel_id": channelID,
-			"url":        url,
+		response := InviteResponse{
+			ChannelID: req.ChannelID,
+			URL:       url,
 		}
-		h.RespondWithJSON(w, code, data)
+		h.RespondWithJSON(w, code, response)
 	}()
 
-	if err := h.sipSvr.Uas.Invite(mediaServerAddr, deviceID, channelID); err != nil {
+	if err := h.sipSvr.Uas.Invite(req.MediaServerAddr, req.DeviceID, req.ChannelID); err != nil {
 		code = http.StatusInternalServerError
 		return
 	}
-	c, ok := h.sipSvr.Uas.GetVideoChannelStatue(channelID)
+	c, ok := h.sipSvr.Uas.GetVideoChannelStatue(req.ChannelID)
 	if !ok {
 		code = http.StatusInternalServerError
 		return
 	}
-	url = "webrtc://" + mediaServerAddr + "/live/" + c.Ssrc
+	url = "webrtc://" + req.MediaServerAddr + "/live/" + c.Ssrc
 }
 
 func (h *HttpApiServer) ApiBye(w http.ResponseWriter, r *http.Request) {
@@ -141,28 +138,40 @@ func (h *HttpApiServer) ApiBye(w http.ResponseWriter, r *http.Request) {
 
 // request: {"device_id": "1", "channel_id": "1", "ptz": "up", "speed": "1}
 func (h *HttpApiServer) ApiPTZControl(w http.ResponseWriter, r *http.Request) {
-	var req map[string]string
+	var req PTZControlRequest
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	deviceID := req["device_id"]
-	channelID := req["channel_id"]
-	ptz := req["ptz"]
-	speed := req["speed"]
+
 	code := 0
 	msg := ""
 	defer func() {
 		h.RespondWithJSON(w, code, map[string]string{"msg": msg})
 	}()
-	if err := h.sipSvr.Uas.ControlPTZ(deviceID, channelID, ptz, speed); err != nil {
+	if err := h.sipSvr.Uas.ControlPTZ(req.DeviceID, req.ChannelID, req.PTZ, req.Speed); err != nil {
 		code = http.StatusInternalServerError
 		msg = err.Error()
 		return
 	}
 	msg = "success"
+}
 
+func (h *HttpApiServer) ApiQueryRecord(w http.ResponseWriter, r *http.Request) {
+	var req QueryRecordRequest
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	records, err := h.sipSvr.Uas.QueryRecord(req.DeviceID, req.ChannelID, req.StartTime, req.EndTime)
+	if err != nil {
+		h.RespondWithJSON(w, http.StatusInternalServerError, map[string]string{"msg": err.Error()})
+		return
+	}
+	h.RespondWithJSON(w, 0, records)
 }
 
 func (h *HttpApiServer) ApiListMediaServers(w http.ResponseWriter, r *http.Request) {
@@ -177,15 +186,7 @@ func (h *HttpApiServer) ApiListMediaServers(w http.ResponseWriter, r *http.Reque
 
 // request: {"name": "srs1", "ip": "192.168.1.100", "port": 1935, "type": "SRS", "username": "admin", "password": "123456"}
 func (h *HttpApiServer) ApiAddMediaServer(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Name      string `json:"name"`
-		IP        string `json:"ip"`
-		Port      int    `json:"port"`
-		Type      string `json:"type"`
-		Username  string `json:"username"`
-		Password  string `json:"password"`
-		IsDefault int    `json:"is_default"`
-	}
+	var req MediaServerRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.RespondWithJSON(w, http.StatusBadRequest, map[string]string{"msg": "invalid request"})

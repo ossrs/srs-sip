@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onActivated, onDeactivated } from 'vue'
 import { ElMessage } from 'element-plus'
 import { VideoCamera, Close, Camera, FullScreen, Refresh, Setting, Mute, Microphone, Delete } from '@element-plus/icons-vue'
 import DeviceTree from '@/components/monitor/DeviceTree.vue'
@@ -76,6 +76,22 @@ const toggleGridFullscreen = async () => {
     ElMessage.error('全屏切换失败')
   }
 }
+
+// 添加激活/停用处理
+onActivated(() => {
+  console.log('MonitorView activated')
+  // 如果需要在重新激活时执行某些操作，可以在这里添加
+})
+
+onDeactivated(() => {
+  console.log('MonitorView deactivated')
+  // 组件被缓存，不需要清理视频资源
+})
+
+// 组件名称（用于 keep-alive）
+defineOptions({
+  name: 'MonitorView'
+})
 </script>
 
 <template>
@@ -124,6 +140,7 @@ const toggleGridFullscreen = async () => {
           v-model="currentLayout"
           :layouts="layouts"
           :default-muted="defaultMuted"
+          :show-border="true"
           @window-select="handleWindowSelect"
         />
       </div>
@@ -155,7 +172,7 @@ const toggleGridFullscreen = async () => {
   display: grid;
   grid-template-columns: 280px 1fr;
   gap: 16px;
-  height: calc(100vh - 180px);
+  height: 100%;
 }
 
 .left-panel {

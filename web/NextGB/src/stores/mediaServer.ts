@@ -35,6 +35,11 @@ export const fetchMediaServers = async () => {
     
     if (mediaServers.value.length > 0) {
       await checkServersStatus()
+      // 找到默认服务器并更新 defaultMediaServer
+      const defaultServer = mediaServers.value.find(server => server.isDefault === 1)
+      if (defaultServer) {
+        defaultMediaServer.value = defaultServer
+      }
     }
   } catch (error) {
     console.error('获取媒体服务器列表失败:', error)

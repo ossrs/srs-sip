@@ -1,13 +1,26 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { Search, Plus, Refresh } from '@element-plus/icons-vue'
+import { ref, computed } from 'vue'
+import { Search, Refresh } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { useDevices, useChannels, fetchDevicesAndChannels } from '@/stores/devices'
+import { useDevices, useChannels, fetchDevicesAndChannels, useDevicesLoading } from '@/stores/devices'
 import type { Device, ChannelInfo } from '@/types/api'
 
 const devices = useDevices()
 const allChannels = useChannels()
-const deviceList = ref<ExtendedDevice[]>([])
+const loading = useDevicesLoading()
+
+const deviceList = computed(() => devices.value.map(formatDeviceData))
+
+const fetchDevices = async (showError = true) => {
+  try {
+    await fetchDevicesAndChannels()
+  } catch (error) {
+    console.error('获取设备列表失败:', error)
+    if (showError) {
+      ElMessage.error('获取设备列表失败，请稍后重试')
+    }
+  }
+}
 
 interface ExtendedDevice extends Device {
   channelCount?: number
@@ -16,7 +29,6 @@ interface ExtendedDevice extends Device {
 const searchQuery = ref('')
 const currentPage = ref(1)
 const pageSize = ref(10)
-const loading = ref(false)
 
 const dialogVisible = ref(false)
 const currentDevice = ref<ExtendedDevice | null>(null)
@@ -25,24 +37,9 @@ const channels = ref<ChannelInfo[]>([])
 const formatDeviceData = (device: Device): ExtendedDevice => {
   return {
     ...device,
-    status: device.status || 'offline',
+    status: device.status || 0,
     name: device.name || device.device_id,
-    channelCount: allChannels.value.filter(channel => channel.device_id === device.device_id).length,
-  }
-}
-
-const fetchDevices = async (showError = true) => {
-  try {
-    loading.value = true
-    await fetchDevicesAndChannels()
-    deviceList.value = devices.value.map(formatDeviceData)
-  } catch (error) {
-    console.error('获取设备列表失败:', error)
-    if (showError) {
-      ElMessage.error('获取设备列表失败，请稍后重试')
-    }
-  } finally {
-    loading.value = false
+    channelCount: allChannels.value.filter(channel => channel.parent_id === device.device_id).length,
   }
 }
 
@@ -75,25 +72,25 @@ const handleRefresh = () => {
 const showDeviceDetails = async (device: ExtendedDevice) => {
   currentDevice.value = device
   dialogVisible.value = true
-  channels.value = allChannels.value.filter(channel => channel.device_id === device.device_id)
+  channels.value = allChannels.value.filter(channel => channel.parent_id === device.device_id)
 }
 
-const getStatusType = (status: string) => {
-  switch (status.toLowerCase()) {
-    case 'online':
+const getStatusType = (status: number) => {
+  switch (status) {
+    case 1:
       return 'success'
-    case 'offline':
+    case 0:
       return 'danger'
     default:
       return 'warning'
   }
 }
 
-const getStatusText = (status: string) => {
-  switch (status.toLowerCase()) {
-    case 'online':
+const getStatusText = (status: number) => {
+  switch (status) {
+    case 1:
       return '在线'
-    case 'offline':
+    case 0:
       return '离线'
     default:
       return '未知'
@@ -192,8 +189,8 @@ const paginatedDevices = computed(() => {
                 {{ currentDevice?.network_type }}
               </el-descriptions-item>
               <el-descriptions-item label="状态">
-                <el-tag :type="currentDevice?.status === 'online' ? 'success' : 'danger'">
-                  {{ currentDevice?.status === 'online' ? '在线' : '离线' }}
+                <el-tag :type="currentDevice?.status === 1 ? 'success' : 'danger'">
+                  {{ currentDevice?.status === 1 ? '在线' : '离线' }}
                 </el-tag>
               </el-descriptions-item>
               <el-descriptions-item label="通道数量">

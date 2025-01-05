@@ -51,36 +51,40 @@ onMounted(() => {
         <span>demo</span>
       </div>
       <el-menu :collapse="isCollapse" default-active="1" class="sidebar-menu">
-        <el-menu-item index="1" @click="$router.push('/dashboard')">
+        <el-menu-item index="dashboard" @click="$router.push('/dashboard')">
           <el-icon><DataLine /></el-icon>
           <span>系统概览</span>
         </el-menu-item>
 
-        <el-menu-item index="2" @click="$router.push('/monitor')">
+        <el-menu-item index="monitor" @click="$router.push('/monitor')">
           <el-icon><Monitor /></el-icon>
           <span>实时监控</span>
         </el-menu-item>
 
-        <el-menu-item index="4" @click="$router.push('/playback')">
+        <el-menu-item index="playback" @click="$router.push('/playback')">
           <el-icon><VideoPlay /></el-icon>
           <span>录像回放</span>
         </el-menu-item>
 
-        <el-sub-menu index="2">
+        <el-menu-item index="media" @click="$router.push('/media')">
+          <el-icon><VideoCamera /></el-icon>
+          <span>流媒体服务</span>
+        </el-menu-item>
+
+        <el-sub-menu index="device">
           <template #title>
             <el-icon><Setting /></el-icon>
             <span>设备管理</span>
           </template>
-          <el-menu-item index="2-1" @click="$router.push('/devices')"> 设备列表 </el-menu-item>
+          <el-menu-item index="device-list" @click="$router.push('/devices')"> 设备列表 </el-menu-item>
         </el-sub-menu>
 
-        <el-sub-menu index="3">
+        <el-sub-menu index="system">
           <template #title>
             <el-icon><Tools /></el-icon>
             <span>系统设置</span>
           </template>
-          <el-menu-item index="3-1" @click="$router.push('/settings')">基本设置</el-menu-item>
-          <el-menu-item index="3-2" @click="$router.push('/media')">媒体服务管理</el-menu-item>
+          <el-menu-item index="settings" @click="$router.push('/settings')">基本设置</el-menu-item>
         </el-sub-menu>
       </el-menu>
     </div>
@@ -112,7 +116,11 @@ onMounted(() => {
 
       <!-- 主要内容区域 -->
       <div class="main-content">
-        <router-view></router-view>
+        <router-view v-slot="{ Component }">
+          <keep-alive :include="['MonitorView', 'PlaybackView']">
+            <component :is="Component" />
+          </keep-alive>
+        </router-view>
       </div>
     </div>
   </div>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onBeforeUnmount, onMounted } from 'vue'
+import { ref, computed, watch, onBeforeUnmount, onMounted, onActivated, onDeactivated } from 'vue'
 import { VideoCamera, Close, Camera, FullScreen, Refresh, Setting, Mute, Microphone, Delete } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { Device, ChannelInfo, MediaServer, ApiResponse } from '@/types/api'
@@ -26,6 +26,7 @@ const props = defineProps<{
   modelValue: string
   defaultMuted?: boolean
   layouts: Record<string, LayoutConfig>
+  showBorder?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -76,7 +77,7 @@ const startStream = async (device: DeviceWithChannel, index: number) => {
     device.error = false
 
     if (!defaultMediaServer?.value) {
-      throw new Error('未找到可用的媒体服务器，请先在媒体服务器页面设置默认服务器')
+      throw new Error('未找到可用的媒体服务器，请先在流媒体服务页面设置默认服务器')
     }
 
     if (defaultMediaServer.value.status === 0) {
@@ -88,7 +89,10 @@ const startStream = async (device: DeviceWithChannel, index: number) => {
       media_server_addr: mediaServerAddr,
       device_id: device.channel!.parent_id,
       channel_id: device.channel!.device_id,
-      sub_stream: '0',
+      sub_stream: 0,
+      play_type: 0,
+      start_time: 0,
+      end_time: 0,
     })
 
     const streamData = response.data as unknown as StreamResponse
@@ -319,15 +323,18 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
-  selectedDevices.value.forEach((device) => {
-    if (device?.player) {
-      try {
-        device.player.close()
-      } catch (err) {
-        console.error('关闭播放器失败:', err)
+  // 只在组件真正销毁时清理资源
+  if (!(document as any)._vue_app_is_switching_route) {
+    selectedDevices.value.forEach((device) => {
+      if (device?.player) {
+        try {
+          device.player.close()
+        } catch (err) {
+          console.error('关闭播放器失败:', err)
+        }
       }
-    }
-  })
+    })
+  }
 })
 
 defineExpose({
@@ -361,6 +368,36 @@ const handleVideoClick = (index: number) => {
     emit('window-select', null)
   }
 }
+
+// 添加激活/停用处理
+onActivated(() => {
+  console.log('MonitorGrid activated')
+  // 检查并恢复所有视频播放
+  selectedDevices.value.forEach((device, index) => {
+    if (device) {
+      const videoElement = document.getElementById(`video-player-${index}`) as HTMLVideoElement
+      if (videoElement && videoElement.paused) {
+        videoElement.play().catch(err => {
+          console.error('恢复视频播放失败:', err)
+        })
+      }
+    }
+  })
+})
+
+onDeactivated(() => {
+  console.log('MonitorGrid deactivated')
+  // 可以选择暂停视频播放，但不销毁资源
+  selectedDevices.value.forEach((device, index) => {
+    if (device) {
+      const videoElement = document.getElementById(`video-player-${index}`) as HTMLVideoElement
+      if (videoElement && !videoElement.paused) {
+        // 可以选择是否暂停视频
+        // videoElement.pause()
+      }
+    }
+  })
+})
 </script>
 
 <template>
@@ -370,7 +407,10 @@ const handleVideoClick = (index: number) => {
         v-for="(device, index) in selectedDevices"
         :key="index"
         class="grid-item"
-        :class="{ active: index === activeIndex }"
+        :class="{ 
+          active: index === activeIndex,
+          'with-border': props.showBorder 
+        }"
         @click="handleVideoClick(index)"
       >
         <template v-if="device !== null">
@@ -444,7 +484,7 @@ const handleVideoClick = (index: number) => {
 .grid-container {
   flex: 1;
   display: grid;
-  gap: 8px;
+  gap: 0px;
   padding: 0px;
   height: 100%;
   background: var(--el-bg-color-page);
@@ -460,14 +500,16 @@ const handleVideoClick = (index: number) => {
 .grid-item {
   position: relative;
   background-color: var(--el-fill-color-darker);
-  border: 2px solid transparent;
   transition: border-color 0.2s ease;
   cursor: pointer;
-  aspect-ratio: 16/9;
   overflow: hidden;
   
-  &.active {
-    border-color: var(--el-color-primary);
+  &.with-border {
+    border: 2px solid transparent;
+    
+    &.active {
+      border-color: var(--el-color-primary);
+    }
   }
 }
 

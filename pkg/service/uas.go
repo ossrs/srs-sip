@@ -17,9 +17,10 @@ import (
 type UAS struct {
 	*Cascade
 
-	SN             uint32
-	channelsStatue sync.Map
-	signal         signaling.ISignaling
+	SN                 uint32
+	channelsStatue     sync.Map
+	signal             signaling.ISignaling
+	recordQueryResults sync.Map // channelID -> chan []Record
 
 	sipConnUDP *net.UDPConn
 	sipConnTCP *net.TCPListener

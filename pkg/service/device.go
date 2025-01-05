@@ -5,6 +5,17 @@ import (
 	"sync"
 )
 
+type Record struct {
+	DeviceID  string `xml:"DeviceID" json:"device_id"`
+	Name      string `xml:"Name" json:"name"`
+	FilePath  string `xml:"FilePath" json:"file_path"`
+	Address   string `xml:"Address" json:"address"`
+	StartTime string `xml:"StartTime" json:"start_time"`
+	EndTime   string `xml:"EndTime" json:"end_time"`
+	Secrecy   int    `xml:"Secrecy" json:"secrecy"`
+	Type      string `xml:"Type" json:"type"`
+}
+
 // Example XML structure for channel info:
 //
 // <Item>

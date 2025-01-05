@@ -3,6 +3,7 @@ package service
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/emiago/sipgo/sip"
 	"github.com/ossrs/go-oryx-lib/errors"
@@ -222,4 +223,68 @@ func (s *UAS) ControlPTZ(deviceID, channelID, ptz, speed string) error {
 	}
 
 	return nil
+}
+
+// QueryRecord 查询录像记录
+func (s *UAS) QueryRecord(deviceID, channelID string, startTime, endTime int64) ([]*Record, error) {
+	var queryXML = `<?xml version="1.0"?>
+	<Query>
+	<CmdType>RecordInfo</CmdType>
+	<SN>%d</SN>
+	<DeviceID>%s</DeviceID>
+	<StartTime>%s</StartTime>
+	<EndTime>%s</EndTime>
+	<Secrecy>0</Secrecy>
+	<Type>all</Type>
+	</Query>
+	`
+
+	d, ok := DM.GetDeviceInfoByChannel(channelID)
+	if !ok {
+		return nil, errors.Errorf("device %s not found", deviceID)
+	}
+
+	// 时间原本是unix时间戳，需要转换为YYYY-MM-DDTHH:MM:SS
+	startTimeStr := time.Unix(startTime, 0).Format("2006-01-02T00:00:00")
+	endTimeStr := time.Unix(endTime, 0).Format("2006-01-02T15:04:05")
+
+	body := fmt.Sprintf(queryXML, s.getSN(), channelID, startTimeStr, endTimeStr)
+
+	req, err := stack.NewMessageRequest([]byte(body), stack.OutboundConfig{
+		Via:       d.SourceAddr,
+		To:        d.DeviceID,
+		From:      s.conf.Serial,
+		Transport: d.NetworkType,
+	})
+	if err != nil {
+		return nil, errors.Wrapf(err, "build query request error")
+	}
+
+	tx, err := s.sipCli.TransactionRequest(s.ctx, req)
+	if err != nil {
+		return nil, errors.Wrapf(err, "transaction request error")
+	}
+
+	res, err := s.waitAnswer(tx)
+	if err != nil {
+		return nil, errors.Wrapf(err, "wait answer error")
+	}
+
+	if res.StatusCode != 200 {
+		return nil, errors.Errorf("query response error: %s", res.String())
+	}
+
+	// 创建一个通道来接收录像查询结果
+	resultChan := make(chan []*Record, 1)
+	s.recordQueryResults.Store(channelID, resultChan)
+	defer s.recordQueryResults.Delete(channelID)
+
+	// 等待结果或超时
+	select {
+	case <-s.ctx.Done():
+		return nil, errors.Errorf("context done")
+	case records := <-resultChan:
+		logger.Tf(s.ctx, "Received %d records for channel %s", len(records), channelID)
+		return records, nil
+	}
 }

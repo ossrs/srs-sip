@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, computed } from 'vue'
 import type { Device, ChannelInfo } from '@/types/api'
 import { ElMessage } from 'element-plus'
 import { Search, Refresh, Expand, List, InfoFilled } from '@element-plus/icons-vue'
@@ -22,13 +22,13 @@ const expandedKeys = ref<string[]>([])
 const deviceNodes = computed(() => {
   const nodes: DeviceNode[] = []
   for (const device of devices.value) {
-    const deviceChannels = channels.value.filter(channel => channel.device_id === device.device_id)
+    const deviceChannels = channels.value.filter(channel => channel.parent_id === device.device_id)
     const deviceNode: DeviceNode = {
       device_id: device.device_id,
-      label: device.name || device.device_id,
+      label: device.name || '未命名',
       children: deviceChannels.map((channel: ChannelInfo) => ({
         device_id: channel.device_id,
-        label: `${channel.name} (${channel.manufacturer || '未知'})`,
+        label: `${channel.name}`,
         isChannel: true,
         channelInfo: channel
       })),
@@ -40,9 +40,7 @@ const deviceNodes = computed(() => {
 
 const refreshDevices = async () => {
   try {
-    if (devices.value.length === 0) {
-      await fetchDevicesAndChannels()
-    }
+    await fetchDevicesAndChannels()
   } catch (error) {
     ElMessage.error('刷新设备列表失败')
   }
@@ -200,19 +198,6 @@ const tooltipRef = ref()
           <span :class="data.isChannel ? 'channel-label' : 'device-label'">
             {{ data.label }}
             <template v-if="data.isChannel && data.channelInfo">
-              <el-tooltip effect="dark" placement="right">
-                <template #content>
-                  <div>
-                    <p>设备ID: {{ data.channelInfo.device_id }}</p>
-                    <p>厂商: {{ data.channelInfo.manufacturer || '未知' }}</p>
-                    <p>型号: {{ data.channelInfo.model || '未知' }}</p>
-                    <p>地址: {{ data.channelInfo.address || '未知' }}</p>
-                    <p>PTZ类型: {{ data.channelInfo.info?.ptz_type || '无' }}</p>
-                    <p>分辨率: {{ data.channelInfo.info?.resolution || '未知' }}</p>
-                  </div>
-                </template>
-                <el-icon class="ml-2"><InfoFilled /></el-icon>
-              </el-tooltip>
             </template>
           </span>
           <el-tag

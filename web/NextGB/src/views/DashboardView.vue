@@ -4,7 +4,6 @@
     <div class="dashboard-grid">
       <div class="dashboard-card">
         <div class="card-header">
-          <el-icon><VideoCamera /></el-icon>
           <span class="card-title">流媒体服务器</span>
         </div>
         <div class="card-content">
@@ -19,7 +18,6 @@
 
       <div class="dashboard-card">
         <div class="card-header">
-          <el-icon><Monitor /></el-icon>
           <span class="card-title">设备状态</span>
         </div>
         <div class="card-content">
@@ -36,54 +34,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
-import { Monitor, VideoCamera } from '@element-plus/icons-vue'
-import { useMediaServers, fetchMediaServers } from '@/stores/mediaServer'
-import { useDevices, fetchDevicesAndChannels } from '@/stores/devices'
+import { computed } from 'vue'
+import { useMediaServers } from '@/stores/mediaServer'
+import { useDevices } from '@/stores/devices'
 
 const mediaServers = useMediaServers()
 const devices = useDevices()
 
-const onlineServerCount = ref(0)
-const totalServerCount = ref(0)
-const onlineDeviceCount = ref(0)
-const totalDeviceCount = ref(0)
-
-// 更新数据的函数
-const updateData = () => {
-  // 服务器统计
-  const servers = mediaServers.value
-  onlineServerCount.value = servers.filter(server => server.status === 1).length
-  totalServerCount.value = servers.length
-
-  // 设备统计
-  const devicesList = devices.value
-  onlineDeviceCount.value = devicesList.filter(device => device.status === 'online').length
-  totalDeviceCount.value = devicesList.length
-}
-
-// 定时器引用
-let timer: number
-
-onMounted(async () => {
-  // 初始化数据
-  await Promise.all([
-    fetchMediaServers(),
-    fetchDevicesAndChannels()
-  ])
-  
-  // 初始更新
-  updateData()
-  // 设置定时更新
-  timer = setInterval(updateData, 5000)
-})
-
-onUnmounted(() => {
-  // 清理定时器
-  if (timer) {
-    clearInterval(timer)
-  }
-})
+const onlineServerCount = computed(() => mediaServers.value.filter(server => server.status === 1).length)
+const totalServerCount = computed(() => mediaServers.value.length)
+const onlineDeviceCount = computed(() => devices.value.filter(device => device.status === 1).length)
+const totalDeviceCount = computed(() => devices.value.length)
 </script>
 
 <style scoped>
@@ -122,22 +83,13 @@ onUnmounted(() => {
 .card-header {
   display: flex;
   align-items: center;
-  gap: 12px;
   margin-bottom: 24px;
 }
 
-.card-header .el-icon {
-  font-size: 24px;
-  color: var(--el-color-primary);
-  background-color: var(--el-color-primary-light-9);
-  padding: 12px;
-  border-radius: 8px;
-}
-
 .card-title {
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
-  color: var(--el-text-color-regular);
+  color: var(--el-text-color-primary);
 }
 
 .card-content {
