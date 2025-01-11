@@ -4,6 +4,45 @@ export interface ApiResponse<T = any> {
   data: T
 }
 
+export interface InviteRequest {
+  media_server_id: number
+  device_id: string
+  channel_id: string
+  sub_stream: number
+  play_type: number
+  start_time: number
+  end_time: number
+}
+
+export interface InviteResponse {
+  url: string
+}
+
+export interface ByeRequest {
+  device_id: string
+  channel_id: string
+  url: string
+}
+
+export interface PauseRequest {
+  device_id: string
+  channel_id: string
+  url: string
+}
+
+export interface ResumeRequest {
+  device_id: string
+  channel_id: string
+  url: string
+}
+
+export interface SpeedRequest {
+  device_id: string
+  channel_id: string
+  url: string
+  speed: number
+}
+
 // 通道状态类型
 export type ChannelStatus = 'ON' | 'OFF'
 
@@ -34,7 +73,14 @@ export interface ChannelInfo {
   ssrc: string
 }
 
-export interface RecordInfo {
+export interface RecordInfoRequest {
+  device_id: string
+  channel_id: string
+  start_time: number
+  end_time: number
+}
+
+export interface RecordInfoResponse {
   device_id: string
   name: string
   file_path: string
@@ -53,23 +99,12 @@ export interface Device {
   name: string
 }
 
-// 媒体服务器类型
-export interface MediaServer {
-  id: number
-  name: string
-  ip: string
-  port: number
-  type: string
-  username?: string
-  password?: string
-  status: number
-  created_at: string
-  isDefault?: number
-}
-
 export interface PTZControlRequest {
   device_id: string
   channel_id: string
   ptz: string
   speed: string
 }
+
+// 媒体服务器类型
+

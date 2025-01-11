@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
+	"github.com/ossrs/srs-sip/pkg/models"
 	"github.com/ossrs/srs-sip/pkg/service"
 )
 
@@ -23,6 +24,9 @@ func (h *HttpApiServer) RegisterRoutes(router *mux.Router) {
 	apiV1Router.HandleFunc("/invite", h.ApiInvite).Methods(http.MethodPost)
 	apiV1Router.HandleFunc("/bye", h.ApiBye).Methods(http.MethodPost)
 	apiV1Router.HandleFunc("/ptz", h.ApiPTZControl).Methods(http.MethodPost)
+	apiV1Router.HandleFunc("/pause", h.ApiPause).Methods(http.MethodPost)
+	apiV1Router.HandleFunc("/resume", h.ApiResume).Methods(http.MethodPost)
+	apiV1Router.HandleFunc("/speed", h.ApiSpeed).Methods(http.MethodPost)
 
 	apiV1Router.HandleFunc("/query-record", h.ApiQueryRecord).Methods(http.MethodPost)
 
@@ -39,9 +43,9 @@ func (h *HttpApiServer) RegisterRoutes(router *mux.Router) {
 
 func (h *HttpApiServer) RespondWithJSON(w http.ResponseWriter, code int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
-	wrapper := map[string]interface{}{
-		"code": code,
-		"data": data,
+	wrapper := models.CommonResponse{
+		Code: code,
+		Data: data,
 	}
 	json.NewEncoder(w).Encode(wrapper)
 }
@@ -98,50 +102,94 @@ func (h *HttpApiServer) ApiGetAllChannels(w http.ResponseWriter, r *http.Request
 	h.RespondWithJSON(w, 0, channels)
 }
 
-// request: {"media_server_addr": "192.168.1.1:1935", "device_id": "1", "channel_id": "1", "sub_stream": 0}
-// response: {"code": 0, "data": {"channel_id": "1", "url": "webrtc://"}}
 func (h *HttpApiServer) ApiInvite(w http.ResponseWriter, r *http.Request) {
-	// Parse request
-	var req InviteRequest
+	var req models.InviteRequest
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		h.RespondWithJSON(w, http.StatusBadRequest, map[string]string{"msg": err.Error()})
 		return
 	}
 
-	code := 0
-	url := ""
-
-	defer func() {
-		response := InviteResponse{
-			ChannelID: req.ChannelID,
-			URL:       url,
-		}
-		h.RespondWithJSON(w, code, response)
-	}()
-
-	if err := h.sipSvr.Uas.Invite(req.MediaServerAddr, req.DeviceID, req.ChannelID); err != nil {
-		code = http.StatusInternalServerError
+	session, err := h.sipSvr.Uas.Invite(req)
+	if err != nil {
+		h.RespondWithJSON(w, http.StatusInternalServerError, map[string]string{"msg": err.Error()})
 		return
 	}
-	c, ok := h.sipSvr.Uas.GetVideoChannelStatue(req.ChannelID)
-	if !ok {
-		code = http.StatusInternalServerError
-		return
+
+	response := models.InviteResponse{
+		ChannelID: req.ChannelID,
+		URL:       session.URL,
 	}
-	url = "webrtc://" + req.MediaServerAddr + "/live/" + c.Ssrc
+	h.RespondWithJSON(w, 0, response)
 }
 
 func (h *HttpApiServer) ApiBye(w http.ResponseWriter, r *http.Request) {
-	h.RespondWithJSONSimple(w, `{"msg":"Not implemented"}`)
+	var req models.ByeRequest
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.RespondWithJSON(w, http.StatusBadRequest, map[string]string{"msg": err.Error()})
+		return
+	}
+
+	if err := h.sipSvr.Uas.Bye(req); err != nil {
+		h.RespondWithJSON(w, http.StatusInternalServerError, map[string]string{"msg": err.Error()})
+		return
+	}
+
+	h.RespondWithJSON(w, 0, map[string]string{"msg": "success"})
+}
+
+func (h *HttpApiServer) ApiPause(w http.ResponseWriter, r *http.Request) {
+	var req models.PauseRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.RespondWithJSON(w, http.StatusBadRequest, map[string]string{"msg": err.Error()})
+		return
+	}
+
+	if err := h.sipSvr.Uas.Pause(req); err != nil {
+		h.RespondWithJSON(w, http.StatusInternalServerError, map[string]string{"msg": err.Error()})
+		return
+	}
+
+	h.RespondWithJSON(w, 0, map[string]string{"msg": "success"})
+}
+
+func (h *HttpApiServer) ApiResume(w http.ResponseWriter, r *http.Request) {
+	var req models.ResumeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.RespondWithJSON(w, http.StatusBadRequest, map[string]string{"msg": err.Error()})
+		return
+	}
+
+	if err := h.sipSvr.Uas.Resume(req); err != nil {
+		h.RespondWithJSON(w, http.StatusInternalServerError, map[string]string{"msg": err.Error()})
+		return
+	}
+
+	h.RespondWithJSON(w, 0, map[string]string{"msg": "success"})
+}
+
+func (h *HttpApiServer) ApiSpeed(w http.ResponseWriter, r *http.Request) {
+	var req models.SpeedRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.RespondWithJSON(w, http.StatusBadRequest, map[string]string{"msg": err.Error()})
+		return
+	}
+
+	if err := h.sipSvr.Uas.Speed(req); err != nil {
+		h.RespondWithJSON(w, http.StatusInternalServerError, map[string]string{"msg": err.Error()})
+		return
+	}
+
+	h.RespondWithJSON(w, 0, map[string]string{"msg": "success"})
 }
 
 // request: {"device_id": "1", "channel_id": "1", "ptz": "up", "speed": "1}
 func (h *HttpApiServer) ApiPTZControl(w http.ResponseWriter, r *http.Request) {
-	var req PTZControlRequest
+	var req models.PTZControlRequest
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		h.RespondWithJSON(w, http.StatusBadRequest, map[string]string{"msg": err.Error()})
 		return
 	}
 
@@ -159,10 +207,10 @@ func (h *HttpApiServer) ApiPTZControl(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HttpApiServer) ApiQueryRecord(w http.ResponseWriter, r *http.Request) {
-	var req QueryRecordRequest
+	var req models.QueryRecordRequest
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		h.RespondWithJSON(w, http.StatusBadRequest, map[string]string{"msg": err.Error()})
 		return
 	}
 
@@ -175,7 +223,7 @@ func (h *HttpApiServer) ApiQueryRecord(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HttpApiServer) ApiListMediaServers(w http.ResponseWriter, r *http.Request) {
-	servers, err := h.mediaDB.ListMediaServers()
+	servers, err := service.MediaDB.ListMediaServers()
 	if err != nil {
 		h.RespondWithJSON(w, http.StatusInternalServerError, map[string]string{"msg": err.Error()})
 		return
@@ -186,10 +234,10 @@ func (h *HttpApiServer) ApiListMediaServers(w http.ResponseWriter, r *http.Reque
 
 // request: {"name": "srs1", "ip": "192.168.1.100", "port": 1935, "type": "SRS", "username": "admin", "password": "123456"}
 func (h *HttpApiServer) ApiAddMediaServer(w http.ResponseWriter, r *http.Request) {
-	var req MediaServerRequest
+	var req models.MediaServerRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.RespondWithJSON(w, http.StatusBadRequest, map[string]string{"msg": "invalid request"})
+		h.RespondWithJSON(w, http.StatusBadRequest, map[string]string{"msg": err.Error()})
 		return
 	}
 
@@ -200,7 +248,7 @@ func (h *HttpApiServer) ApiAddMediaServer(w http.ResponseWriter, r *http.Request
 	}
 
 	// 添加到数据库
-	if err := h.mediaDB.AddMediaServer(req.Name, req.IP, req.Port, req.Username, req.Password, req.Type, req.IsDefault); err != nil {
+	if err := service.MediaDB.AddMediaServer(req.Name, req.Type, req.IP, req.Port, req.Username, req.Password, req.Secret, req.IsDefault); err != nil {
 		h.RespondWithJSON(w, http.StatusInternalServerError, map[string]string{"msg": err.Error()})
 		return
 	}
@@ -216,7 +264,7 @@ func (h *HttpApiServer) ApiDeleteMediaServer(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	if err := h.mediaDB.DeleteMediaServer(id); err != nil {
+	if err := service.MediaDB.DeleteMediaServer(id); err != nil {
 		h.RespondWithJSON(w, http.StatusInternalServerError, map[string]string{"msg": err.Error()})
 		return
 	}
@@ -232,7 +280,7 @@ func (h *HttpApiServer) ApiSetDefaultMediaServer(w http.ResponseWriter, r *http.
 		return
 	}
 
-	if err := h.mediaDB.SetDefaultMediaServer(id); err != nil {
+	if err := service.MediaDB.SetDefaultMediaServer(id); err != nil {
 		h.RespondWithJSON(w, http.StatusInternalServerError, map[string]string{"msg": err.Error()})
 		return
 	}

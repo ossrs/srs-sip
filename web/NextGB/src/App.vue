@@ -28,10 +28,7 @@ provide('defaultMediaServer', defaultMediaServer)
 const initializeData = async () => {
   try {
     // 并行获取设备列表和媒体服务器列表
-    await Promise.all([
-      fetchDevicesAndChannels(),
-      fetchMediaServers()
-    ])
+    await Promise.all([fetchDevicesAndChannels(), fetchMediaServers()])
   } catch (error) {
     console.error('初始化数据失败:', error)
   }
@@ -56,7 +53,7 @@ onMounted(() => {
           <span>系统概览</span>
         </el-menu-item>
 
-        <el-menu-item index="monitor" @click="$router.push('/monitor')">
+        <el-menu-item index="realplay" @click="$router.push('/realplay')">
           <el-icon><Monitor /></el-icon>
           <span>实时监控</span>
         </el-menu-item>
@@ -76,7 +73,9 @@ onMounted(() => {
             <el-icon><Setting /></el-icon>
             <span>设备管理</span>
           </template>
-          <el-menu-item index="device-list" @click="$router.push('/devices')"> 设备列表 </el-menu-item>
+          <el-menu-item index="device-list" @click="$router.push('/devices')">
+            设备列表
+          </el-menu-item>
         </el-sub-menu>
 
         <el-sub-menu index="system">
@@ -117,7 +116,7 @@ onMounted(() => {
       <!-- 主要内容区域 -->
       <div class="main-content">
         <router-view v-slot="{ Component }">
-          <keep-alive :include="['MonitorView', 'PlaybackView']">
+          <keep-alive :include="['RealplayView', 'PlaybackView']">
             <component :is="Component" />
           </keep-alive>
         </router-view>

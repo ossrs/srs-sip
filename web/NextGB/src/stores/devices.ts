@@ -45,8 +45,8 @@ export const fetchDevicesAndChannels = async () => {
               ...channel.info,
               ptz_type: channel.info?.ptz_type || 0,
               resolution: channel.info?.resolution || '',
-              download_speed: channel.info?.download_speed || ''
-            }
+              download_speed: channel.info?.download_speed || '',
+            },
           }))
           allChannels.push(...deviceChannels)
         }
@@ -84,16 +84,16 @@ export const updateChannels = (newChannels: ChannelInfo[]) => {
 
 // 根据设备ID获取设备
 export const getDeviceById = (deviceId: string) => {
-  return devices.value.find(device => device.device_id === deviceId)
+  return devices.value.find((device) => device.device_id === deviceId)
 }
 
 // 根据设备ID获取该设备的所有通道
 export const getChannelsByDeviceId = (deviceId: string) => {
-  return channels.value.filter(channel => channel.device_id === deviceId)
+  return channels.value.filter((channel) => channel.device_id === deviceId)
 }
 
 // 清空数据
 export const clearDevicesStore = () => {
   devices.value = []
   channels.value = []
-} 
+}

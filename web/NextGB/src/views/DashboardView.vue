@@ -1,3 +1,23 @@
+<script setup lang="ts">
+import { computed } from 'vue'
+import { useMediaServers } from '@/stores/mediaServer'
+import { useDevices } from '@/stores/devices'
+import type { MediaServer } from '@/api/types'
+import type { Device } from '@/api/types'
+
+const mediaServers = useMediaServers()
+const devices = useDevices()
+
+const onlineServerCount = computed(
+  () => mediaServers.value.filter((server: MediaServer) => server.status === 1).length,
+)
+const totalServerCount = computed(() => mediaServers.value.length)
+const onlineDeviceCount = computed(
+  () => devices.value.filter((device: Device) => device.status === 1).length,
+)
+const totalDeviceCount = computed(() => devices.value.length)
+</script>
+
 <template>
   <div class="dashboard">
     <h1 class="dashboard-title">系统概览</h1>
@@ -32,20 +52,6 @@
     </div>
   </div>
 </template>
-
-<script setup lang="ts">
-import { computed } from 'vue'
-import { useMediaServers } from '@/stores/mediaServer'
-import { useDevices } from '@/stores/devices'
-
-const mediaServers = useMediaServers()
-const devices = useDevices()
-
-const onlineServerCount = computed(() => mediaServers.value.filter(server => server.status === 1).length)
-const totalServerCount = computed(() => mediaServers.value.length)
-const onlineDeviceCount = computed(() => devices.value.filter(device => device.status === 1).length)
-const totalDeviceCount = computed(() => devices.value.length)
-</script>
 
 <style scoped>
 .dashboard {
@@ -131,17 +137,17 @@ const totalDeviceCount = computed(() => devices.value.length)
   .dashboard {
     padding: 16px;
   }
-  
+
   .dashboard-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .number {
     font-size: 36px;
   }
-  
+
   .number .separator {
     font-size: 28px;
   }
 }
-</style> 
+</style>

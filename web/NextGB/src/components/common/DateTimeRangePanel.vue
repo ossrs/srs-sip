@@ -27,7 +27,7 @@ const formatDateTime = (date: Date) => {
 const handleShortcut = (type: string) => {
   const now = new Date()
   const start = new Date()
-  
+
   switch (type) {
     case 'today': {
       start.setHours(0, 0, 0, 0)
@@ -45,7 +45,7 @@ const handleShortcut = (type: string) => {
       break
     }
   }
-  
+
   startDateTime.value = formatDateTime(start)
   now.setHours(23, 59, 59)
   endDateTime.value = formatDateTime(now)
@@ -55,7 +55,7 @@ const handleSearch = () => {
   if (!startDateTime.value || !endDateTime.value) return
   emit('search', {
     start: startDateTime.value,
-    end: endDateTime.value
+    end: endDateTime.value,
   })
 }
 </script>
@@ -99,27 +99,9 @@ const handleSearch = () => {
             </div>
           </div>
           <div class="shortcuts">
-            <el-button
-              text
-              size="small"
-              @click="handleShortcut('today')"
-            >
-              今天
-            </el-button>
-            <el-button
-              text
-              size="small"
-              @click="handleShortcut('yesterday')"
-            >
-              昨天
-            </el-button>
-            <el-button
-              text
-              size="small"
-              @click="handleShortcut('lastWeek')"
-            >
-              最近一周
-            </el-button>
+            <el-button text size="small" @click="handleShortcut('today')"> 今天 </el-button>
+            <el-button text size="small" @click="handleShortcut('yesterday')"> 昨天 </el-button>
+            <el-button text size="small" @click="handleShortcut('lastWeek')"> 最近一周 </el-button>
           </div>
         </div>
         <template v-if="!isCollapsed">
@@ -151,7 +133,7 @@ const handleSearch = () => {
   align-items: center;
   cursor: pointer;
   user-select: none;
-  
+
   &:hover {
     background-color: var(--el-fill-color-light);
   }
@@ -169,7 +151,7 @@ const handleSearch = () => {
   font-size: 12px;
   transition: transform 0.2s ease;
   color: var(--el-text-color-secondary);
-  
+
   &.collapsed {
     transform: rotate(-90deg);
   }
@@ -214,11 +196,11 @@ const handleSearch = () => {
   display: flex;
   gap: 8px;
   padding: 0 4px;
-  
+
   :deep(.el-button) {
     height: 24px;
     padding: 0 8px;
-    
+
     &.is-disabled {
       color: var(--el-text-color-disabled);
     }
@@ -230,11 +212,11 @@ const handleSearch = () => {
     padding: 0 8px;
     height: 32px;
   }
-  
+
   :deep(.el-input__inner) {
     font-size: 13px;
   }
-  
+
   :deep(.el-date-editor) {
     --el-date-editor-width: 100%;
   }
@@ -247,4 +229,4 @@ const handleSearch = () => {
 :deep(.el-picker-panel) {
   --el-datepicker-border-color: var(--el-border-color-lighter);
 }
-</style> 
+</style>

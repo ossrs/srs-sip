@@ -1,25 +1,27 @@
 <script setup lang="ts">
 import { ref, computed, watch, onBeforeUnmount, onMounted, onActivated, onDeactivated } from 'vue'
-import { VideoCamera, Close, Camera, FullScreen, Refresh, Setting, Mute, Microphone, Delete } from '@element-plus/icons-vue'
+import {
+  VideoCamera,
+  Close,
+  Camera,
+  FullScreen,
+} from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import type { Device, ChannelInfo, MediaServer, ApiResponse } from '@/types/api'
+import type * as Types from '@/api/types'
 import { deviceApi } from '@/api'
-import { SrsRtcPlayer } from '@/api/srs'
+import { createMediaServer } from '@/api/mediaserver/factory'
 import { useDefaultMediaServer } from '@/stores/mediaServer'
 import type { LayoutConfig } from '@/types/layout'
+import { MediaServerType } from '@/api/mediaserver/types'
 
-interface DeviceWithChannel extends Device {
-  channelInfo?: ChannelInfo
+interface DeviceWithChannel extends Types.Device {
+  channelInfo?: Types.ChannelInfo
   player?: any
   error?: boolean
   id?: string
-  channel?: ChannelInfo
+  channel?: Types.ChannelInfo
   isMuted?: boolean
-}
-
-interface StreamResponse {
-  url: string
-  [key: string]: any
+  url?: string
 }
 
 const props = defineProps<{
@@ -36,7 +38,7 @@ const emit = defineEmits<{
 
 const currentLayout = computed({
   get: () => props.modelValue,
-  set: (value) => emit('update:modelValue', value)
+  set: (value) => emit('update:modelValue', value),
 })
 
 const selectedDevices = ref<(DeviceWithChannel | null)[]>([])
@@ -58,21 +60,39 @@ const maxDevices = computed(() => props.layouts[currentLayout.value].size)
 
 // 视频流控制
 const startWebRTCPlay = async (url: string, index: number, device: DeviceWithChannel) => {
-  const player = SrsRtcPlayer()
+  if (!defaultMediaServer?.value) {
+    throw new Error('未找到可用的媒体服务器')
+  }
+
+  // 目前只有SRS支持WebRTC播放
+  const serverType = defaultMediaServer.value.type.toLowerCase()
+  console.log('当前媒体服务器类型:', serverType)
+  
+  if (serverType !== 'srs') {
+    throw new Error(`当前媒体服务器类型(${serverType})不支持WebRTC播放，请使用SRS类型的服务器`)
+  }
+
+  const mediaServer = createMediaServer(defaultMediaServer.value)
+  const player = (mediaServer as any).createRtcPlayer()
   device.player = player
 
-  // @ts-ignore
-  player.onaddstream = (event: { stream: MediaStream }) => {
+  player.ontrack = (event: RTCTrackEvent) => {
     const videoElement = document.getElementById(`video-player-${index}`) as HTMLVideoElement
-    if (videoElement) {
-      videoElement.srcObject = event.stream
+    if (videoElement && event.streams?.[0]) {
+      videoElement.srcObject = event.streams[0]
     }
   }
 
   await player.play(url)
 }
 
-const startStream = async (device: DeviceWithChannel, index: number) => {
+const startStream = async (
+  device: DeviceWithChannel,
+  index: number,
+  play_type: number = 0,
+  start_time: number = 0,
+  end_time: number = 0,
+) => {
   try {
     device.error = false
 
@@ -84,21 +104,22 @@ const startStream = async (device: DeviceWithChannel, index: number) => {
       throw new Error('默认流媒体服务器不在线，请检查服务器状态')
     }
 
-    const mediaServerAddr = `${defaultMediaServer.value.ip}:${defaultMediaServer.value.port}`
-    const response = await deviceApi.inviteStream({
-      media_server_addr: mediaServerAddr,
+    const response = await deviceApi.invite({
+      media_server_id: defaultMediaServer.value.id,
       device_id: device.channel!.parent_id,
       channel_id: device.channel!.device_id,
       sub_stream: 0,
-      play_type: 0,
-      start_time: 0,
-      end_time: 0,
+      play_type,
+      start_time,
+      end_time,
     })
 
-    const streamData = response.data as unknown as StreamResponse
+    const streamData = response.data as unknown as Types.InviteResponse
     if (!streamData?.url) {
       throw new Error('播放地址不存在')
     }
+
+    device.url = streamData.url
 
     await startWebRTCPlay(streamData.url, index, device)
   } catch (error) {
@@ -114,14 +135,29 @@ const cleanupDevice = async (device: DeviceWithChannel) => {
     try {
       await device.player.close()
       device.player = null
+
+      if (!device.url) return
+
+      await deviceApi.bye({
+        device_id: device.device_id,
+        channel_id: device.channel!.device_id,
+        url: device.url!,
+      })
     } catch (err) {
       console.error('关闭播放器失败:', err)
     }
   }
 }
 
-const play = async (device: Device & { channel: ChannelInfo }) => {
-  let index = selectedDevices.value.findIndex(d => d === null);
+const play = async (
+  device: Types.Device & {
+    channel: Types.ChannelInfo
+    play_type?: number
+    start_time?: number
+    end_time?: number
+  },
+) => {
+  let index = selectedDevices.value.findIndex((d) => d === null)
   if (index === -1) {
     if (selectedDevices.value.length >= maxDevices.value) {
       ElMessage.warning('已达到最大分屏数量')
@@ -136,16 +172,23 @@ const play = async (device: Device & { channel: ChannelInfo }) => {
       channelInfo: device.channel,
       channel: device.channel,
       error: false,
-      isMuted: props.defaultMuted
+      isMuted: props.defaultMuted,
+      url: '',
     }
-    
+
     while (selectedDevices.value.length <= index) {
       selectedDevices.value.push(null)
     }
-    
+
     selectedDevices.value[index] = deviceWithChannel
-    await startStream(deviceWithChannel, index)
-    
+    await startStream(
+      deviceWithChannel,
+      index,
+      device.play_type,
+      device.start_time,
+      device.end_time,
+    )
+
     const videoElement = document.getElementById(`video-player-${index}`) as HTMLVideoElement
     if (videoElement) {
       videoElement.muted = props.defaultMuted ?? true
@@ -156,7 +199,41 @@ const play = async (device: Device & { channel: ChannelInfo }) => {
   }
 }
 
-const removeDevice = async (index: number) => {
+const pause = async (index: number) => {
+  const device = selectedDevices.value[index]
+  if (!device) return
+
+  await deviceApi.pause({
+    device_id: device.device_id,
+    channel_id: device.channel!.device_id,
+    url: device.url!,
+  })
+}
+
+const resume = async (index: number) => {
+  const device = selectedDevices.value[index]
+  if (!device) return
+
+  await deviceApi.resume({
+    device_id: device.device_id,
+    channel_id: device.channel!.device_id,
+    url: device.url!,
+  })
+}
+
+const speed = async (index: number, speed: number) => {
+  const device = selectedDevices.value[index]
+  if (!device) return
+
+  await deviceApi.speed({
+    device_id: device.device_id,
+    channel_id: device.channel!.device_id,
+    url: device.url!,
+    speed,
+  })
+}
+
+const stop = async (index: number) => {
   const device = selectedDevices.value[index]
   if (!device) return
 
@@ -198,7 +275,7 @@ const handleVideoError = (index: number, event: Event) => {
   }
 }
 
-const captureImage = async (index: number) => {
+const capture = async (index: number) => {
   const videoElement = document.getElementById(`video-player-${index}`) as HTMLVideoElement
   if (!videoElement) {
     ElMessage.error('未找到视频元素')
@@ -220,7 +297,7 @@ const captureImage = async (index: number) => {
     if (!device) {
       throw new Error('设备不存在')
     }
-    
+
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
     const filename = `${device.name || 'capture'}-${timestamp}.png`
 
@@ -237,7 +314,7 @@ const captureImage = async (index: number) => {
 }
 
 // 清空所有设备
-const clearAllDevices = async () => {
+const clear = async () => {
   try {
     await ElMessageBox.confirm('确定要清空所有设备吗？', '提示', {
       confirmButtonText: '确定',
@@ -247,10 +324,10 @@ const clearAllDevices = async () => {
 
     for (let i = 0; i < selectedDevices.value.length; i++) {
       if (selectedDevices.value[i]) {
-        await removeDevice(i)
+        await stop(i)
       }
     }
-    
+
     // 用 null 填充数组而不是清空
     selectedDevices.value = new Array(props.layouts[currentLayout.value].size).fill(null)
 
@@ -266,8 +343,8 @@ const clearAllDevices = async () => {
 // 布局切换处理
 watch(currentLayout, async (newLayout, oldLayout) => {
   const maxSize = props.layouts[newLayout].size
-  const activeDevices = selectedDevices.value.filter(d => d !== null).length
-  
+  const activeDevices = selectedDevices.value.filter((d) => d !== null).length
+
   if (activeDevices > maxSize) {
     try {
       await ElMessageBox.confirm(
@@ -283,13 +360,13 @@ watch(currentLayout, async (newLayout, oldLayout) => {
       // 从后往前移除超出设备
       for (let i = selectedDevices.value.length - 1; i >= 0; i--) {
         if (selectedDevices.value[i] && i >= maxSize) {
-          await removeDevice(i)
+          await stop(i)
         }
       }
-      
+
       // 调整数组大小
       selectedDevices.value.length = maxSize
-      
+
       ElMessage.success('布局切换成功')
     } catch (err) {
       if (err !== 'cancel') {
@@ -339,7 +416,11 @@ onBeforeUnmount(() => {
 
 defineExpose({
   play,
-  clearAllDevices
+  pause,
+  resume,
+  speed,
+  clear,
+  stop,
 })
 
 const toggleMute = (index: number) => {
@@ -358,11 +439,11 @@ const activeIndex = ref<number | null>(null)
 const handleVideoClick = (index: number) => {
   const device = selectedDevices.value[index]
   activeIndex.value = index
-  
+
   if (device && device.channel) {
     emit('window-select', {
       deviceId: device.device_id,
-      channelId: device.channel.device_id
+      channelId: device.channel.device_id,
     })
   } else {
     emit('window-select', null)
@@ -377,7 +458,7 @@ onActivated(() => {
     if (device) {
       const videoElement = document.getElementById(`video-player-${index}`) as HTMLVideoElement
       if (videoElement && videoElement.paused) {
-        videoElement.play().catch(err => {
+        videoElement.play().catch((err) => {
           console.error('恢复视频播放失败:', err)
         })
       }
@@ -407,9 +488,9 @@ onDeactivated(() => {
         v-for="(device, index) in selectedDevices"
         :key="index"
         class="grid-item"
-        :class="{ 
+        :class="{
           active: index === activeIndex,
-          'with-border': props.showBorder 
+          'with-border': props.showBorder,
         }"
         @click="handleVideoClick(index)"
       >
@@ -423,9 +504,7 @@ onDeactivated(() => {
             @error="handleVideoError(index, $event)"
           />
           <div class="video-overlay">
-            <div class="device-info">
-              {{ device.name }} - {{ device.channel?.name ?? '' }}
-            </div>
+            <div class="device-info">{{ device.name }} - {{ device.channel?.name ?? '' }}</div>
             <div class="video-controls">
               <div class="control-bar">
                 <el-button
@@ -439,7 +518,7 @@ onDeactivated(() => {
                 </el-button>
                 <el-button
                   class="control-btn"
-                  @click.stop="captureImage(index)"
+                  @click.stop="capture(index)"
                   :title="'抓图'"
                   :disabled="device.error"
                 >
@@ -454,7 +533,7 @@ onDeactivated(() => {
                 </el-button>
                 <el-button
                   class="control-btn is-danger"
-                  @click.stop="removeDevice(index)"
+                  @click.stop="stop(index)"
                   :title="'关闭'"
                 >
                   <el-icon><Close /></el-icon>
@@ -489,7 +568,7 @@ onDeactivated(() => {
   height: 100%;
   background: var(--el-bg-color-page);
   border-radius: 4px;
-  
+
   &.is-fullscreen {
     padding: 16px;
     background: #000;
@@ -503,10 +582,13 @@ onDeactivated(() => {
   transition: border-color 0.2s ease;
   cursor: pointer;
   overflow: hidden;
-  
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
   &.with-border {
     border: 2px solid transparent;
-    
+
     &.active {
       border-color: var(--el-color-primary);
     }
@@ -518,6 +600,12 @@ onDeactivated(() => {
   height: 100%;
   object-fit: contain;
   background: #000;
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
 }
 
 .video-overlay {
@@ -529,7 +617,7 @@ onDeactivated(() => {
   display: flex;
   flex-direction: column;
   padding: 0;
-  background: linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, transparent 30%);
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.5) 0%, transparent 30%);
   opacity: 0;
   transition: opacity 0.3s ease;
 }
@@ -561,37 +649,37 @@ onDeactivated(() => {
   border: none !important;
   background: transparent !important;
   color: #fff !important;
-  
+
   &:hover {
     background: rgba(255, 255, 255, 0.1) !important;
     color: var(--el-color-primary) !important;
   }
-  
+
   &.is-danger:hover {
     color: var(--el-color-danger) !important;
   }
 }
 
 /* 根据布局调整按钮大小 */
-.grid-container[style*="repeat(1, 1fr)"] .control-btn {
+.grid-container[style*='repeat(1, 1fr)'] .control-btn {
   width: 32px !important;
   height: 32px !important;
   font-size: 16px !important;
 }
 
-.grid-container[style*="repeat(2, 1fr)"] .control-btn {
+.grid-container[style*='repeat(2, 1fr)'] .control-btn {
   width: 28px !important;
   height: 28px !important;
   font-size: 14px !important;
 }
 
-.grid-container[style*="repeat(3, 1fr)"] .control-btn {
+.grid-container[style*='repeat(3, 1fr)'] .control-btn {
   width: 20px !important;
   height: 20px !important;
   font-size: 10px !important;
 }
 
-.grid-container[style*="repeat(4, 1fr)"] .control-btn {
+.grid-container[style*='repeat(4, 1fr)'] .control-btn {
   width: 16px !important;
   height: 16px !important;
   font-size: 8px !important;
@@ -614,7 +702,7 @@ onDeactivated(() => {
   align-items: center;
   justify-content: center;
   background: #1a1a1a;
-  
+
   .el-icon {
     font-size: 24px;
     opacity: 0.5;
@@ -623,7 +711,7 @@ onDeactivated(() => {
 
   &:hover {
     background: #242424;
-    
+
     .el-icon {
       opacity: 0.8;
       color: var(--el-color-primary);

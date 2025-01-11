@@ -8,18 +8,19 @@ import (
 	"sync"
 
 	"github.com/emiago/sipgo"
-	"github.com/emiago/sipgo/sip"
 	"github.com/ossrs/go-oryx-lib/logger"
 	"github.com/ossrs/srs-sip/pkg/config"
-	"github.com/ossrs/srs-sip/pkg/signaling"
+	"github.com/ossrs/srs-sip/pkg/db"
+	"github.com/ossrs/srs-sip/pkg/media"
 )
 
 type UAS struct {
 	*Cascade
 
 	SN                 uint32
-	channelsStatue     sync.Map
-	signal             signaling.ISignaling
+	Streams            sync.Map
+	mediaLock          sync.Mutex
+	media              media.IMedia
 	recordQueryResults sync.Map // channelID -> chan []Record
 
 	sipConnUDP *net.UDPConn
@@ -27,6 +28,7 @@ type UAS struct {
 }
 
 var DM = GetDeviceManager()
+var MediaDB, _ = db.GetInstance("./media_servers.db")
 
 func NewUas() *UAS {
 	return &UAS{
@@ -36,10 +38,6 @@ func NewUas() *UAS {
 
 func (s *UAS) Start(agent *sipgo.UserAgent, r0 interface{}) error {
 	ctx := context.Background()
-	sig := &signaling.Srs{
-		Ctx: ctx,
-	}
-	s.signal = sig
 	s.startSipServer(agent, ctx, r0)
 	return nil
 }
@@ -124,10 +122,6 @@ func (s *UAS) startTCP() error {
 		}
 	}()
 	return nil
-}
-
-func sipErrorResponse(tx sip.ServerTransaction, req *sip.Request) {
-	_ = tx.Respond(sip.NewResponseFromRequest(req, 400, "", nil))
 }
 
 func (s *UAS) getSN() uint32 {

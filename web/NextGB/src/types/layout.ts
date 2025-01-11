@@ -4,4 +4,3 @@ export interface LayoutConfig {
   size: number
   label: string
 }
-

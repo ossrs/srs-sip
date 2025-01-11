@@ -2,8 +2,13 @@
 import { ref, computed } from 'vue'
 import { Search, Refresh } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { useDevices, useChannels, fetchDevicesAndChannels, useDevicesLoading } from '@/stores/devices'
-import type { Device, ChannelInfo } from '@/types/api'
+import {
+  useDevices,
+  useChannels,
+  fetchDevicesAndChannels,
+  useDevicesLoading,
+} from '@/stores/devices'
+import type { Device, ChannelInfo } from '@/api/types'
 
 const devices = useDevices()
 const allChannels = useChannels()
@@ -39,7 +44,9 @@ const formatDeviceData = (device: Device): ExtendedDevice => {
     ...device,
     status: device.status || 0,
     name: device.name || device.device_id,
-    channelCount: allChannels.value.filter(channel => channel.parent_id === device.device_id).length,
+    channelCount: allChannels.value.filter(
+      (channel: ChannelInfo) => channel.parent_id === device.device_id,
+    ).length,
   }
 }
 
@@ -47,7 +54,7 @@ const filteredDevices = computed(() => {
   if (!searchQuery.value.trim()) return deviceList.value
 
   const query = searchQuery.value.trim().toLowerCase()
-  return deviceList.value.filter((device) => {
+  return deviceList.value.filter((device: Device) => {
     return (
       device.name?.toLowerCase().includes(query) ||
       device.device_id?.toLowerCase().includes(query) ||
@@ -72,7 +79,9 @@ const handleRefresh = () => {
 const showDeviceDetails = async (device: ExtendedDevice) => {
   currentDevice.value = device
   dialogVisible.value = true
-  channels.value = allChannels.value.filter(channel => channel.parent_id === device.device_id)
+  channels.value = allChannels.value.filter(
+    (channel: ChannelInfo) => channel.parent_id === device.device_id,
+  )
 }
 
 const getStatusType = (status: number) => {
@@ -101,7 +110,6 @@ const paginatedDevices = computed(() => {
   const start = (currentPage.value - 1) * pageSize.value
   return filteredDevices.value.slice(start, start + pageSize.value)
 })
-
 </script>
 <template>
   <div class="device-list-view">
@@ -151,7 +159,9 @@ const paginatedDevices = computed(() => {
         </el-table-column>
         <el-table-column label="操作" width="120" fixed="right">
           <template #default="{ row }">
-            <el-button type="primary" link @click.stop="showDeviceDetails(row)"> 查看详情 </el-button>
+            <el-button type="primary" link @click.stop="showDeviceDetails(row)">
+              查看详情
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -290,4 +300,3 @@ h1 {
   margin-bottom: 15px;
 }
 </style>
-

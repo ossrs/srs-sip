@@ -12,7 +12,7 @@ type OutboundConfig struct {
 	To        string
 }
 
-func newRequest(method sip.RequestMethod, body []byte, conf OutboundConfig) (*sip.Request, error) {
+func NewRequest(method sip.RequestMethod, body []byte, conf OutboundConfig) (*sip.Request, error) {
 	if len(conf.From) != 20 || len(conf.To) != 20 {
 		return nil, errors.Errorf("From or To length is not 20")
 	}
@@ -37,7 +37,7 @@ func newRequest(method sip.RequestMethod, body []byte, conf OutboundConfig) (*si
 }
 
 func NewRegisterRequest(conf OutboundConfig) (*sip.Request, error) {
-	req, err := newRequest(sip.REGISTER, nil, conf)
+	req, err := NewRequest(sip.REGISTER, nil, conf)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +47,7 @@ func NewRegisterRequest(conf OutboundConfig) (*sip.Request, error) {
 }
 
 func NewInviteRequest(body []byte, subject string, conf OutboundConfig) (*sip.Request, error) {
-	req, err := newRequest(sip.INVITE, body, conf)
+	req, err := NewRequest(sip.INVITE, body, conf)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +58,7 @@ func NewInviteRequest(body []byte, subject string, conf OutboundConfig) (*sip.Re
 }
 
 func NewMessageRequest(body []byte, conf OutboundConfig) (*sip.Request, error) {
-	req, err := newRequest(sip.MESSAGE, body, conf)
+	req, err := NewRequest(sip.MESSAGE, body, conf)
 	if err != nil {
 		return nil, err
 	}

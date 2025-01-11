@@ -1,4 +1,4 @@
-package signaling
+package media
 
 import (
 	"context"
@@ -7,8 +7,11 @@ import (
 )
 
 type Srs struct {
-	Ctx  context.Context
-	Addr string // The address of SRS, eg: http://localhost:1985
+	Ctx      context.Context
+	Schema   string // The schema of SRS, eg: http
+	Addr     string // The address of SRS, eg: localhost:1985
+	Username string // The username of SRS, eg: admin
+	Password string // The password of SRS, eg: 123456
 }
 
 func (s *Srs) Publish(id, ssrc string) (int, error) {
@@ -24,7 +27,7 @@ func (s *Srs) Publish(id, ssrc string) (int, error) {
 		Port int `json:"port"`
 	}{}
 
-	if err := apiRequest(s.Ctx, s.Addr+"/gb/v1/publish/", req, &res); err != nil {
+	if err := apiRequest(s.Ctx, s.Schema+"://"+s.Addr+"/gb/v1/publish/", req, &res); err != nil {
 		return 0, errors.Wrapf(err, "gb/v1/publish")
 	}
 
@@ -78,7 +81,7 @@ func (s *Srs) GetStreamStatus(id string) (bool, error) {
 		Streams []Stream `json:"streams"`
 	}{}
 
-	if err := apiRequest(s.Ctx, s.Addr+"/api/v1/streams?count=99", nil, &res); err != nil {
+	if err := apiRequest(s.Ctx, s.Schema+"://"+s.Addr+"/api/v1/streams?count=99", nil, &res); err != nil {
 		return false, errors.Wrapf(err, "api/v1/stream")
 	}
 
@@ -94,6 +97,10 @@ func (s *Srs) GetStreamStatus(id string) (bool, error) {
 	return false, nil
 }
 
-func (s *Srs) SetAddr(addr string) {
-	s.Addr = addr
+func (s *Srs) GetAddr() string {
+	return s.Addr
+}
+
+func (s *Srs) GetWebRTCAddr(id string) string {
+	return "webrtc://" + s.Addr + "/live/" + id
 }

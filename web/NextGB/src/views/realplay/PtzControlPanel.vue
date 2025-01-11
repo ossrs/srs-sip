@@ -1,8 +1,16 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { ArrowRight, VideoCamera } from '@element-plus/icons-vue'
-import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight as ArrowRightControl,
-  TopLeft, TopRight, BottomLeft, BottomRight } from '@element-plus/icons-vue'
+import {
+  ArrowUp,
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight as ArrowRightControl,
+  TopLeft,
+  TopRight,
+  BottomLeft,
+  BottomRight,
+} from '@element-plus/icons-vue'
 import { deviceApi } from '@/api'
 import { ElMessage } from 'element-plus'
 
@@ -32,7 +40,7 @@ const handlePtzStart = async (direction: string) => {
       device_id: props.activeWindow.deviceId,
       channel_id: props.activeWindow.channelId,
       ptz: direction,
-      speed: speed.value.toString()
+      speed: speed.value.toString(),
     })
     emit('control', direction)
   } catch (error) {
@@ -48,7 +56,7 @@ const handlePtzStop = async () => {
       device_id: props.activeWindow.deviceId,
       channel_id: props.activeWindow.channelId,
       ptz: 'stop',
-      speed: speed.value.toString()
+      speed: speed.value.toString(),
     })
     emit('control', 'stop')
   } catch (error) {
@@ -75,52 +83,76 @@ const isDisabled = computed(() => !props.activeWindow)
         <div class="ptz-controls">
           <div class="direction-controls">
             <div class="direction-pad">
-              <el-button class="direction-btn up" :disabled="isDisabled" 
+              <el-button
+                class="direction-btn up"
+                :disabled="isDisabled"
                 @mousedown="handlePtzStart('up')"
                 @mouseup="handlePtzStop"
-                @mouseleave="handlePtzStop">
+                @mouseleave="handlePtzStop"
+              >
                 <el-icon><ArrowUp /></el-icon>
               </el-button>
-              <el-button class="direction-btn right" :disabled="isDisabled" 
+              <el-button
+                class="direction-btn right"
+                :disabled="isDisabled"
                 @mousedown="handlePtzStart('right')"
                 @mouseup="handlePtzStop"
-                @mouseleave="handlePtzStop">
+                @mouseleave="handlePtzStop"
+              >
                 <el-icon><ArrowRightControl /></el-icon>
               </el-button>
-              <el-button class="direction-btn down" :disabled="isDisabled" 
+              <el-button
+                class="direction-btn down"
+                :disabled="isDisabled"
                 @mousedown="handlePtzStart('down')"
                 @mouseup="handlePtzStop"
-                @mouseleave="handlePtzStop">
+                @mouseleave="handlePtzStop"
+              >
                 <el-icon><ArrowDown /></el-icon>
               </el-button>
-              <el-button class="direction-btn left" :disabled="isDisabled" 
+              <el-button
+                class="direction-btn left"
+                :disabled="isDisabled"
                 @mousedown="handlePtzStart('left')"
                 @mouseup="handlePtzStop"
-                @mouseleave="handlePtzStop">
+                @mouseleave="handlePtzStop"
+              >
                 <el-icon><ArrowLeft /></el-icon>
               </el-button>
-              <el-button class="direction-btn up-left" :disabled="isDisabled" 
+              <el-button
+                class="direction-btn up-left"
+                :disabled="isDisabled"
                 @mousedown="handlePtzStart('upleft')"
                 @mouseup="handlePtzStop"
-                @mouseleave="handlePtzStop">
+                @mouseleave="handlePtzStop"
+              >
                 <el-icon><TopLeft /></el-icon>
               </el-button>
-              <el-button class="direction-btn up-right" :disabled="isDisabled" 
+              <el-button
+                class="direction-btn up-right"
+                :disabled="isDisabled"
                 @mousedown="handlePtzStart('upright')"
                 @mouseup="handlePtzStop"
-                @mouseleave="handlePtzStop">
+                @mouseleave="handlePtzStop"
+              >
                 <el-icon><TopRight /></el-icon>
               </el-button>
-              <el-button class="direction-btn down-left" :disabled="isDisabled" 
+              <el-button
+                class="direction-btn down-left"
+                :disabled="isDisabled"
                 @mousedown="handlePtzStart('downleft')"
                 @mouseup="handlePtzStop"
-                @mouseleave="handlePtzStop">
+                @mouseleave="handlePtzStop"
+              >
                 <el-icon><BottomLeft /></el-icon>
               </el-button>
-              <el-button class="direction-btn down-right" :disabled="isDisabled" 
+              <el-button
+                class="direction-btn down-right"
+                :disabled="isDisabled"
                 @mousedown="handlePtzStart('downright')"
                 @mouseup="handlePtzStop"
-                @mouseleave="handlePtzStop">
+                @mouseleave="handlePtzStop"
+              >
                 <el-icon><BottomRight /></el-icon>
               </el-button>
               <div class="direction-center"></div>
@@ -158,7 +190,7 @@ const isDisabled = computed(() => !props.activeWindow)
   align-items: center;
   cursor: pointer;
   user-select: none;
-  
+
   &:hover {
     background-color: var(--el-fill-color-light);
   }
@@ -176,7 +208,7 @@ const isDisabled = computed(() => !props.activeWindow)
   font-size: 12px;
   transition: transform 0.2s ease;
   color: var(--el-text-color-secondary);
-  
+
   &.collapsed {
     transform: rotate(-90deg);
   }
@@ -246,22 +278,22 @@ const isDisabled = computed(() => !props.activeWindow)
   --el-button-hover-border-color: var(--el-color-primary-light-4);
   --el-button-active-bg-color: var(--el-color-primary-light-5);
   --el-button-active-border-color: var(--el-color-primary);
-  
+
   border-radius: 4px;
   padding: 0;
   margin: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  
+
   .el-icon {
     font-size: 16px;
   }
-  
+
   &:hover {
     transform: scale(1.05);
   }
-  
+
   &:active {
     transform: scale(0.95);
   }
@@ -351,4 +383,4 @@ const isDisabled = computed(() => !props.activeWindow)
 :deep(.el-slider.is-vertical) {
   margin: 0;
 }
-</style> 
+</style>

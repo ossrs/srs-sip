@@ -1,24 +1,14 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, onActivated, onDeactivated } from 'vue'
-import DeviceTree from '@/components/monitor/DeviceTree.vue'
+import { ref, computed, onMounted, onBeforeUnmount, onActivated, onDeactivated, watch } from 'vue'
+import DeviceTree from './DeviceTree.vue'
 import MonitorGrid from '@/components/monitor/MonitorGrid.vue'
 import DateTimeRangePanel from '@/components/common/DateTimeRangePanel.vue'
-import type { Device, ChannelInfo, RecordInfo } from '@/types/api'
+import type { Device, ChannelInfo, RecordInfoResponse } from '@/api/types'
 import type { LayoutConfig } from '@/types/layout'
 import { deviceApi } from '@/api'
 import dayjs from 'dayjs'
-import {
-  CaretRight,
-  VideoPause,
-  CircleClose,
-  DArrowRight,
-  DArrowLeft,
-  Timer,
-  Picture,
-  Download,
-  Microphone
-} from '@element-plus/icons-vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { VideoPlay, VideoPause, CloseBold, Microphone } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 
 type LayoutKey = '1'
 type LayoutConfigs = Record<LayoutKey, LayoutConfig>
@@ -29,14 +19,13 @@ const layouts: LayoutConfigs = {
 } as const
 
 const monitorGridRef = ref()
-const currentDevice = ref<Device>()
-const currentChannel = ref<ChannelInfo>()
+const selectedChannels = ref<{ device: Device | undefined; channel: ChannelInfo }[]>([])
 const volume = ref(100)
-const playbackSpeed = ref(1.0)
-const playbackSpeeds = [0.25, 0.5, 1.0, 2.0, 4.0, 8.0]
 const currentLayout = ref<'1'>('1') // 固定为单屏模式
 const defaultMuted = ref(true)
 const activeWindow = ref<{ deviceId: string; channelId: string } | null>(null)
+const isPlaying = ref(false) // 添加播放状态变量
+const isFirstPlay = ref(true)
 
 // 时间轴刻度显示控制
 const timelineWidth = ref(0)
@@ -48,31 +37,27 @@ const cursorPosition = ref(0)
 const cursorTime = ref('')
 const isTimelineHovered = ref(false)
 
-// 计算时间轴上的时间点
-const calculateTimeFromPosition = (position: number) => {
+const getTimeFromEvent = (event: MouseEvent, element: HTMLElement) => {
+  const rect = element.getBoundingClientRect()
+  const position = ((event.clientX - rect.left) / rect.width) * 100
+  const normalizedPosition = Math.max(0, Math.min(100, position))
+
   const totalMinutes = 24 * 60
-  const minutes = Math.floor((position / 100) * totalMinutes)
+  const minutes = Math.floor((normalizedPosition / 100) * totalMinutes)
   const hours = Math.floor(minutes / 60)
   const mins = minutes % 60
-  return dayjs().startOf('day').add(hours, 'hour').add(mins, 'minute')
+
+  return {
+    position: normalizedPosition,
+    time: dayjs().startOf('day').add(hours, 'hour').add(mins, 'minute'),
+  }
 }
 
-// 处理时间轴鼠标移动
 const handleTimelineMouseMove = (event: MouseEvent) => {
   const timeline = event.currentTarget as HTMLElement
-  const rect = timeline.getBoundingClientRect()
-  const position = ((event.clientX - rect.left) / rect.width) * 100
-  cursorPosition.value = Math.max(0, Math.min(100, position))
-  cursorTime.value = calculateTimeFromPosition(cursorPosition.value).format('HH:mm:ss')
-}
-
-// 处理时间轴鼠标点击
-const handleTimelineClick = (event: MouseEvent) => {
-  const timeline = event.currentTarget as HTMLElement
-  const rect = timeline.getBoundingClientRect()
-  const position = ((event.clientX - rect.left) / rect.width) * 100
-  const clickTime = calculateTimeFromPosition(position)
-  console.log('选择的时间点:', clickTime.format('HH:mm:ss'))
+  const { position, time } = getTimeFromEvent(event, timeline)
+  cursorPosition.value = position
+  cursorTime.value = time.format('HH:mm:ss')
 }
 
 // 处理时间轴鼠标进入/离开
@@ -117,50 +102,79 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', updateTimelineWidth)
 })
 
-const handleDeviceSelect = (data: { device: Device | undefined; channel: ChannelInfo }) => {
-  currentDevice.value = data.device
-  currentChannel.value = data.channel
-}
-
-const handleDevicePlay = (data: { device: Device | undefined; channel: ChannelInfo }) => {
-  if (data.channel.device_id) {
-    monitorGridRef.value?.play({
-      ...data.device,
-      channel: data.channel,
-    })
-  } else {
-    ElMessage.warning('设备信息不完整')
-  }
-}
-
 const handleWindowSelect = (data: { deviceId: string; channelId: string } | null) => {
   activeWindow.value = data
 }
 
-const recordSegments = ref<RecordInfo[]>([])
+const recordSegments = ref<RecordInfoResponse[]>([])
 
 const handleQueryRecord = async ({ start, end }: { start: string; end: string }) => {
+  if (selectedChannels.value.length === 0) {
+    ElMessage.warning('请先选择要查询的通道')
+    return
+  }
+
   try {
-    const response = await deviceApi.queryRecord({
-      device_id: currentDevice.value?.device_id || '',
-      channel_id: currentChannel.value?.device_id || '',
-      start_time: dayjs(start).unix(),
-      end_time: dayjs(end).unix(),
+    const promises = selectedChannels.value.map(async ({ device, channel }) => {
+      if (!device?.device_id || !channel.device_id) return []
+
+      const response = await deviceApi.queryRecord({
+        device_id: device.device_id,
+        channel_id: channel.device_id,
+        start_time: dayjs(start).unix(),
+        end_time: dayjs(end).unix(),
+      })
+      return Array.isArray(response.data) ? response.data : []
     })
-    if (Array.isArray(response.data)) {
-      recordSegments.value = response.data
-    } else {
-      recordSegments.value = []
+
+    const results = await Promise.all<RecordInfoResponse[]>(promises)
+    recordSegments.value = results.flat()
+
+    // 自动激活第一个选中的通道
+    if (selectedChannels.value.length > 0) {
+      const firstChannel = selectedChannels.value[0]
+      if (firstChannel.device?.device_id && firstChannel.channel.device_id) {
+        activeWindow.value = {
+          deviceId: firstChannel.device.device_id,
+          channelId: firstChannel.channel.device_id
+        }
+      }
     }
   } catch (error) {
     console.error('查询录像失败:', error)
     ElMessage.error('查询录像失败')
+    recordSegments.value = []
   }
 }
 
-const clearAllDevices = () => {
-  monitorGridRef.value?.clearAllDevices()
+const handleStop = () => {
+  monitorGridRef.value?.stop(0)
+  isPlaying.value = false // 设置播放状态为 false
+  
+  // 确保 activeWindow 始终指向第一个屏幕
+  if (selectedChannels.value.length > 0) {
+    const firstChannel = selectedChannels.value[0]
+    if (firstChannel.device?.device_id && firstChannel.channel.device_id) {
+      activeWindow.value = {
+        deviceId: firstChannel.device.device_id,
+        channelId: firstChannel.channel.device_id
+      }
+    }
+  }
 }
+
+// 监听 selectedChannels 变化，确保 activeWindow 始终指向第一个屏幕
+watch(selectedChannels, (newChannels) => {
+  if (newChannels.length > 0) {
+    const firstChannel = newChannels[0]
+    if (firstChannel.device?.device_id && firstChannel.channel.device_id) {
+      activeWindow.value = {
+        deviceId: firstChannel.device.device_id,
+        channelId: firstChannel.channel.device_id
+      }
+    }
+  }
+}, { immediate: true })
 
 const calculatePosition = (time: string) => {
   const hour = dayjs(time).hour()
@@ -177,37 +191,115 @@ const calculateWidth = (start: string, end: string) => {
 // 添加激活/停用处理
 onActivated(() => {
   console.log('PlaybackView activated')
-  // 如果需要在重新激活时恢复播放，可以在这里添加相关逻辑
 })
 
 onDeactivated(() => {
   console.log('PlaybackView deactivated')
-  // 组件被缓存，不需要清理视频资源
 })
 
 // 组件名称（用于 keep-alive）
 defineOptions({
-  name: 'PlaybackView'
+  name: 'PlaybackView',
 })
 
+const handleTimelineDoubleClick = async (event: MouseEvent) => {
+  if (selectedChannels.value.length === 0) {
+    ElMessage.warning('请先选择要播放的通道')
+    return
+  }
+
+  const timeline = event.currentTarget as HTMLElement
+  const { time } = getTimeFromEvent(event, timeline)
+  const endTime = dayjs().endOf('day')
+
+  // 只播放第一个选中的通道
+  const { device, channel } = selectedChannels.value[0]
+  if (!device?.device_id || !channel.device_id) {
+    ElMessage.warning('设备信息不完整')
+    return
+  }
+
+  try {
+    monitorGridRef.value?.play({
+      ...device,
+      channel: channel,
+      play_type: 1, // 1 表示回放
+      start_time: time.unix(),
+      end_time: endTime.unix(), // 使用当天 23:59:59 的时间戳
+    })
+    isPlaying.value = true // 设置播放状态为 true
+  } catch (error) {
+    console.error('播放录像失败:', error)
+    ElMessage.error('播放录像失败')
+  }
+}
+
+// 处理播放/暂停切换
+const handlePlayPause = async () => {
+  if (!activeWindow.value || selectedChannels.value.length === 0) return
+
+  if (!isPlaying.value) {
+    // 开始播放
+    const { device, channel } = selectedChannels.value[0]
+    if (!device?.device_id || !channel.device_id) {
+      ElMessage.warning('设备信息不完整')
+      return
+    }
+
+    try {
+      // 如果有录像段，则根据是否是第一次播放来决定是调用 play 还是 resume
+      if (recordSegments.value.length === 0) {
+        ElMessage.warning('没有可播放的录像')
+        return
+      }
+
+      if (isFirstPlay.value) {
+        monitorGridRef.value?.play({
+          ...device,
+          channel: channel,
+          play_type: 1, // 1 表示回放
+          start_time: recordSegments.value[0].start_time,
+          end_time: recordSegments.value[0].end_time,
+        })
+        isFirstPlay.value = false
+      } else {
+        monitorGridRef.value?.resume(0)
+      }
+      isPlaying.value = true
+    } catch (error) {
+      console.error('播放录像失败:', error)
+      ElMessage.error('播放录像失败')
+      return
+    }
+  } else {
+    // 暂停播放
+    try {
+      const { device, channel } = selectedChannels.value[0]
+      if (!device?.device_id || !channel.device_id) {
+        ElMessage.warning('设备信息不完整')
+        return
+      }
+      console.log('暂停录像')
+      monitorGridRef.value?.pause(0)
+      isPlaying.value = false
+    } catch (error) {
+      console.error('暂停录像失败:', error)
+      ElMessage.error('暂停录像失败')
+    }
+  }
+}
 </script>
 
 <template>
   <div class="playback-container">
     <div class="left-panel">
-      <DeviceTree 
-        @select="handleDeviceSelect"
-        @play="handleDevicePlay"
-      />
-      <DateTimeRangePanel
-        title="录像查询"
-        @search="handleQueryRecord"
-      />
+      <DeviceTree v-model:selectedChannels="selectedChannels" />
+      <DateTimeRangePanel title="录像查询" @search="handleQueryRecord" />
     </div>
     <div class="right-panel">
       <div class="playback-panel">
-        <MonitorGrid 
-          ref="monitorGridRef" 
+        <MonitorGrid
+          ref="monitorGridRef"
           v-model="currentLayout"
           :layouts="layouts"
           :default-muted="defaultMuted"
@@ -216,23 +308,30 @@ defineOptions({
         />
         <div class="timeline-panel" :style="{ height: `${timelineHeight}px` }">
           <div class="timeline-ruler">
-            <div class="timeline-scale"
+            <div
+              class="timeline-scale"
               @mousemove="handleTimelineMouseMove"
               @mouseenter="handleTimelineMouseEnter"
               @mouseleave="handleTimelineMouseLeave"
-              @click="handleTimelineClick"
+              @dblclick="handleTimelineDoubleClick"
             >
               <div class="timeline-marks">
-                <div v-for="hour in 24" :key="hour" 
+                <div
+                  v-for="hour in 24"
+                  :key="hour"
                   class="hour-mark"
                   :class="{
                     'major-mark': (hour - 1) % 6 === 0,
                     'medium-mark': (hour - 1) % 3 === 0 && (hour - 1) % 6 !== 0,
-                    'minor-mark': (hour - 1) % 3 !== 0
+                    'minor-mark': (hour - 1) % 3 !== 0,
                   }"
                 >
-                  <div 
-                    v-if="(hour - 1) % 6 === 0 || (showMediumLabels && (hour - 1) % 3 === 0) || showAllLabels"
+                  <div
+                    v-if="
+                      (hour - 1) % 6 === 0 ||
+                      (showMediumLabels && (hour - 1) % 3 === 0) ||
+                      showAllLabels
+                    "
                     class="hour-label"
                   >
                     {{ (hour - 1).toString().padStart(2, '0') }}
@@ -240,13 +339,14 @@ defineOptions({
                   <div class="hour-line"></div>
                   <div class="half-hour-mark"></div>
                 </div>
-                <div class="hour-mark major-mark" style="flex: 0 0 auto;">
+                <div class="hour-mark major-mark" style="flex: 0 0 auto">
                   <div class="hour-label">24</div>
                   <div class="hour-line"></div>
                 </div>
               </div>
-              
-              <div class="timeline-cursor" 
+
+              <div
+                class="timeline-cursor"
                 :class="{ visible: isTimelineHovered }"
                 :style="{ left: `${cursorPosition}%` }"
               >
@@ -262,7 +362,7 @@ defineOptions({
                   class="record-segment"
                   :style="{
                     left: `${calculatePosition(segment.start_time)}%`,
-                    width: `${calculateWidth(segment.start_time, segment.end_time)}%`
+                    width: `${calculateWidth(segment.start_time, segment.end_time)}%`,
                   }"
                   :title="`${dayjs(segment.start_time).format('HH:mm:ss')} - ${dayjs(segment.end_time).format('HH:mm:ss')}`"
                 />
@@ -274,71 +374,18 @@ defineOptions({
           <div class="control-group">
             <el-button-group>
               <el-button
-                :icon="CaretRight"
+                :icon="isPlaying ? VideoPause : VideoPlay"
                 :disabled="!activeWindow"
-                size="small"
-                title="播放"
+                size="large"
+                :title="isPlaying ? '暂停' : '播放'"
+                @click="handlePlayPause"
               />
               <el-button
-                :icon="VideoPause"
+                :icon="CloseBold"
                 :disabled="!activeWindow"
-                size="small"
-                title="暂停"
-              />
-              <el-button
-                :icon="CircleClose"
-                :disabled="!activeWindow"
-                @click="clearAllDevices"
-                size="small"
+                @click="handleStop"
+                size="large"
                 title="停止"
-              />
-            </el-button-group>
-
-            <el-button-group>
-              <el-button
-                :icon="DArrowLeft"
-                :disabled="!activeWindow || playbackSpeed <= playbackSpeeds[0]"
-                @click="playbackSpeed = Math.max(playbackSpeed / 2, playbackSpeeds[0])"
-                size="small"
-                title="减速"
-              />
-              <el-button
-                :icon="Timer"
-                :disabled="!activeWindow"
-                @click="playbackSpeed = 1.0"
-                size="small"
-                :class="{ 'speed-active': playbackSpeed !== 1.0 }"
-                title="当前速度"
-              >
-                <span class="speed-text">{{ playbackSpeed }}x</span>
-              </el-button>
-              <el-button
-                :icon="DArrowRight"
-                :disabled="!activeWindow || playbackSpeed >= playbackSpeeds[playbackSpeeds.length - 1]"
-                @click="playbackSpeed = Math.min(playbackSpeed * 2, playbackSpeeds[playbackSpeeds.length - 1])"
-                size="small"
-                title="加速"
-              />
-            </el-button-group>
-
-            <div class="time-info">
-              <span class="current-time">00:00:00</span>
-              <span class="time-separator">/</span>
-              <span class="total-time">00:00:00</span>
-            </div>
-
-            <el-button-group>
-              <el-button 
-                :icon="Picture" 
-                :disabled="!activeWindow" 
-                size="small"
-                title="截图"
-              />
-              <el-button 
-                :icon="Download" 
-                :disabled="!activeWindow" 
-                size="small"
-                title="下载"
               />
             </el-button-group>
           </div>
@@ -404,36 +451,13 @@ defineOptions({
   gap: 16px;
 }
 
-.time-info {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.85);
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 0 8px;
-}
-
-.time-separator {
-  color: rgba(255, 255, 255, 0.3);
-  margin: 0 2px;
-}
-
-.current-time {
-  color: var(--el-color-primary);
-}
-
-.total-time {
-  color: rgba(255, 255, 255, 0.5);
-}
-
 .volume-control {
   display: flex;
   align-items: center;
   gap: 8px;
   width: 140px;
   color: rgba(255, 255, 255, 0.8);
-  
+
   :deep(.el-icon) {
     font-size: 18px;
   }
@@ -461,11 +485,6 @@ defineOptions({
     &:hover:not(:disabled) {
       --el-button-text-color: var(--el-color-primary);
     }
-
-    &:has(.speed-text) {
-      width: auto;
-      padding: 0 12px;
-    }
   }
 }
 
@@ -474,11 +493,11 @@ defineOptions({
   --el-slider-runway-bg-color: rgba(255, 255, 255, 0.15);
   --el-slider-stop-bg-color: rgba(255, 255, 255, 0.2);
   --el-slider-disabled-color: rgba(255, 255, 255, 0.1);
-  
+
   .el-slider__runway {
     height: 3px;
   }
-  
+
   .el-slider__button {
     border: none;
     width: 10px;
@@ -486,7 +505,7 @@ defineOptions({
     background-color: #fff;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
     transition: transform 0.2s ease;
-    
+
     &:hover {
       transform: scale(1.3);
     }
@@ -495,28 +514,6 @@ defineOptions({
   .el-slider__bar {
     height: 3px;
   }
-}
-
-.speed-text {
-  font-size: 13px;
-  margin-left: 6px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-}
-
-.speed-active {
-  --el-button-text-color: var(--el-color-primary) !important;
-  --el-button-bg-color: rgba(var(--el-color-primary-rgb), 0.1) !important;
-}
-
-:deep(.el-radio-group) {
-  --el-button-bg-color: var(--el-fill-color-blank);
-  --el-button-hover-bg-color: var(--el-fill-color);
-  --el-button-active-bg-color: var(--el-color-primary);
-  --el-button-text-color: var(--el-text-color-regular);
-  --el-button-hover-text-color: var(--el-text-color-primary);
-  --el-button-active-text-color: #fff;
-  --el-button-border-color: var(--el-border-color);
-  --el-button-hover-border-color: var(--el-border-color-hover);
 }
 
 .timeline-panel {
@@ -604,11 +601,11 @@ defineOptions({
   opacity: 0;
   transition: opacity 0.2s ease;
   z-index: 2;
-  
+
   &.visible {
     opacity: 1;
   }
-  
+
   &::after {
     content: '';
     position: absolute;
@@ -641,7 +638,7 @@ defineOptions({
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.2s ease;
-  
+
   &.visible {
     opacity: 1;
   }
@@ -653,7 +650,7 @@ defineOptions({
     background-color: rgba(255, 255, 255, 0.4);
     width: 2px;
   }
-  
+
   .hour-label {
     color: rgba(255, 255, 255, 0.95);
     font-weight: 500;
@@ -667,7 +664,7 @@ defineOptions({
     background-color: rgba(255, 255, 255, 0.25);
     width: 1.5px;
   }
-  
+
   .hour-label {
     color: rgba(255, 255, 255, 0.7);
   }
@@ -679,7 +676,7 @@ defineOptions({
     background-color: rgba(255, 255, 255, 0.15);
     width: 1px;
   }
-  
+
   .hour-label {
     color: rgba(255, 255, 255, 0.4);
     font-size: 10px;

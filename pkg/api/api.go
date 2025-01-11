@@ -10,26 +10,18 @@ import (
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/ossrs/srs-sip/pkg/config"
-	"github.com/ossrs/srs-sip/pkg/db"
 	"github.com/ossrs/srs-sip/pkg/service"
 )
 
 type HttpApiServer struct {
-	conf    *config.MainConfig
-	sipSvr  *service.Service
-	mediaDB *db.MediaServerDB
+	conf   *config.MainConfig
+	sipSvr *service.Service
 }
 
 func NewHttpApiServer(r0 interface{}, svr *service.Service) (*HttpApiServer, error) {
-	mediaDB, err := db.NewMediaServerDB("./media_servers.db")
-	if err != nil {
-		return nil, err
-	}
-
 	return &HttpApiServer{
-		conf:    r0.(*config.MainConfig),
-		sipSvr:  svr,
-		mediaDB: mediaDB,
+		conf:   r0.(*config.MainConfig),
+		sipSvr: svr,
 	}, nil
 }
 

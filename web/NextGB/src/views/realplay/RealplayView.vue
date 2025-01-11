@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ref, onActivated, onDeactivated } from 'vue'
 import { ElMessage } from 'element-plus'
-import { VideoCamera, Close, Camera, FullScreen, Refresh, Setting, Mute, Microphone, Delete } from '@element-plus/icons-vue'
-import DeviceTree from '@/components/monitor/DeviceTree.vue'
+import { FullScreen, Setting, Delete } from '@element-plus/icons-vue'
+import DeviceTree from './DeviceTree.vue'
 import MonitorGrid from '@/components/monitor/MonitorGrid.vue'
-import PtzControlPanel from '@/components/monitor/PtzControlPanel.vue'
-import type { Device, ChannelInfo } from '@/types/api'
+import PtzControlPanel from '@/views/realplay/PtzControlPanel.vue'
+import type { Device, ChannelInfo } from '@/api/types'
 import type { LayoutConfig } from '@/types/layout'
 
 // 所有可用的布局键
@@ -36,6 +36,9 @@ const handleDevicePlay = (data: { device: Device | undefined; channel: ChannelIn
     monitorGridRef.value?.play({
       ...data.device,
       channel: data.channel,
+      play_type: 0,
+      start_time: 0,
+      end_time: 0,
     })
   } else {
     ElMessage.warning('设备信息不完整')
@@ -54,8 +57,8 @@ const handlePtzControl = (direction: string) => {
   console.log('云台控制:', direction, activeWindow.value)
 }
 
-const clearAllDevices = () => {
-  monitorGridRef.value?.clearAllDevices()
+const clearAll = () => {
+  monitorGridRef.value?.clear()
 }
 
 const toggleGridFullscreen = async () => {
@@ -90,7 +93,7 @@ onDeactivated(() => {
 
 // 组件名称（用于 keep-alive）
 defineOptions({
-  name: 'MonitorView'
+  name: 'RealplayView',
 })
 </script>
 
@@ -98,10 +101,7 @@ defineOptions({
   <div class="monitor-view">
     <div class="monitor-layout">
       <div class="left-panel">
-        <DeviceTree 
-          @select="handleDeviceSelect"
-          @play="handleDevicePlay"
-        />
+        <DeviceTree @select="handleDeviceSelect" @play="handleDevicePlay" />
         <PtzControlPanel
           title="云台控制"
           :active-window="activeWindow"
@@ -112,11 +112,7 @@ defineOptions({
         <div class="grid-toolbar">
           <div class="layout-controls">
             <el-radio-group v-model="currentLayout" size="small">
-              <el-radio-button 
-                v-for="(layout, key) in layouts" 
-                :key="key" 
-                :value="key"
-              >
+              <el-radio-button v-for="(layout, key) in layouts" :key="key" :value="key">
                 {{ layout.label }}
               </el-radio-button>
             </el-radio-group>
@@ -126,7 +122,12 @@ defineOptions({
               <el-button size="small" @click="showSettings = true" :title="'设置'">
                 <el-icon><Setting /></el-icon>
               </el-button>
-              <el-button type="danger" size="small" @click="clearAllDevices" :title="'清空所有设备'">
+              <el-button
+                type="danger"
+                size="small"
+                @click="clearAll"
+                :title="'清空所有设备'"
+              >
                 <el-icon><Delete /></el-icon>
               </el-button>
               <el-button size="small" @click="toggleGridFullscreen" :title="'全屏'">
@@ -135,8 +136,8 @@ defineOptions({
             </el-button-group>
           </div>
         </div>
-        <MonitorGrid 
-          ref="monitorGridRef" 
+        <MonitorGrid
+          ref="monitorGridRef"
           v-model="currentLayout"
           :layouts="layouts"
           :default-muted="defaultMuted"

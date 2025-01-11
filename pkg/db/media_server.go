@@ -2,12 +2,32 @@ package db
 
 import (
 	"database/sql"
+	"sync"
 
+	"github.com/ossrs/srs-sip/pkg/models"
 	_ "modernc.org/sqlite"
 )
 
+var (
+	instance *MediaServerDB
+	once     sync.Once
+)
+
 type MediaServerDB struct {
+	models.MediaServerResponse
 	db *sql.DB
+}
+
+// GetInstance 返回 MediaServerDB 的单例实例
+func GetInstance(dbPath string) (*MediaServerDB, error) {
+	var err error
+	once.Do(func() {
+		instance, err = NewMediaServerDB(dbPath)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return instance, nil
 }
 
 func NewMediaServerDB(dbPath string) (*MediaServerDB, error) {
@@ -20,13 +40,13 @@ func NewMediaServerDB(dbPath string) (*MediaServerDB, error) {
 	_, err = db.Exec(`
 		CREATE TABLE IF NOT EXISTS media_servers (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			type TEXT NOT NULL,
 			name TEXT NOT NULL,
 			ip TEXT NOT NULL,
 			port INTEGER NOT NULL,
 			username TEXT,
 			password TEXT,
-			type TEXT NOT NULL,
-			status INTEGER NOT NULL DEFAULT 0,
+			secret TEXT,
 			is_default INTEGER NOT NULL DEFAULT 0,
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		)
@@ -38,11 +58,11 @@ func NewMediaServerDB(dbPath string) (*MediaServerDB, error) {
 	return &MediaServerDB{db: db}, nil
 }
 
-func (m *MediaServerDB) AddMediaServer(name, ip string, port int, username, password, serverType string, isDefault int) error {
+func (m *MediaServerDB) AddMediaServer(name, serverType, ip string, port int, username, password, secret string, isDefault int) error {
 	_, err := m.db.Exec(`
-		INSERT INTO media_servers (name, ip, port, username, password, type, status, is_default)
+		INSERT INTO media_servers (name, type, ip, port, username, password, secret, is_default)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-	`, name, ip, port, username, password, serverType, 0, isDefault)
+	`, name, serverType, ip, port, username, password, secret, isDefault)
 	return err
 }
 
@@ -51,21 +71,21 @@ func (m *MediaServerDB) DeleteMediaServer(id int) error {
 	return err
 }
 
-func (m *MediaServerDB) GetMediaServer(id int) (*MediaServer, error) {
-	var ms MediaServer
+func (m *MediaServerDB) GetMediaServer(id int) (*models.MediaServerResponse, error) {
+	var ms models.MediaServerResponse
 	err := m.db.QueryRow(`
-		SELECT id, name, ip, port, username, password, type, status, is_default, created_at
+		SELECT id, name, type, ip, port, username, password, secret, is_default, created_at
 		FROM media_servers WHERE id = ?
-	`, id).Scan(&ms.ID, &ms.Name, &ms.IP, &ms.Port, &ms.Username, &ms.Password, &ms.Type, &ms.Status, &ms.IsDefault, &ms.CreatedAt)
+	`, id).Scan(&ms.ID, &ms.Name, &ms.Type, &ms.IP, &ms.Port, &ms.Username, &ms.Password, &ms.Secret, &ms.IsDefault, &ms.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
 	return &ms, nil
 }
 
-func (m *MediaServerDB) ListMediaServers() ([]MediaServer, error) {
+func (m *MediaServerDB) ListMediaServers() ([]models.MediaServerResponse, error) {
 	rows, err := m.db.Query(`
-		SELECT id, name, ip, port, username, password, type, status, is_default, created_at
+		SELECT id, name, type, ip, port, username, password, secret, is_default, created_at
 		FROM media_servers ORDER BY created_at DESC
 	`)
 	if err != nil {
@@ -73,10 +93,10 @@ func (m *MediaServerDB) ListMediaServers() ([]MediaServer, error) {
 	}
 	defer rows.Close()
 
-	var servers []MediaServer
+	var servers []models.MediaServerResponse
 	for rows.Next() {
-		var ms MediaServer
-		err := rows.Scan(&ms.ID, &ms.Name, &ms.IP, &ms.Port, &ms.Username, &ms.Password, &ms.Type, &ms.Status, &ms.IsDefault, &ms.CreatedAt)
+		var ms models.MediaServerResponse
+		err := rows.Scan(&ms.ID, &ms.Name, &ms.Type, &ms.IP, &ms.Port, &ms.Username, &ms.Password, &ms.Secret, &ms.IsDefault, &ms.CreatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -85,33 +105,15 @@ func (m *MediaServerDB) ListMediaServers() ([]MediaServer, error) {
 	return servers, nil
 }
 
-func (m *MediaServerDB) UpdateMediaServerStatus(id int, status int) error {
-	_, err := m.db.Exec("UPDATE media_servers SET status = ? WHERE id = ?", status, id)
-	return err
-}
-
-func (db *MediaServerDB) SetDefaultMediaServer(id int) error {
+func (m *MediaServerDB) SetDefaultMediaServer(id int) error {
 	// 先将所有服务器设置为非默认
-	if _, err := db.db.Exec("UPDATE media_servers SET is_default = 0"); err != nil {
+	if _, err := m.db.Exec("UPDATE media_servers SET is_default = 0"); err != nil {
 		return err
 	}
 
 	// 将指定ID的服务器设置为默认
-	_, err := db.db.Exec("UPDATE media_servers SET is_default = 1 WHERE id = ?", id)
+	_, err := m.db.Exec("UPDATE media_servers SET is_default = 1 WHERE id = ?", id)
 	return err
-}
-
-type MediaServer struct {
-	ID        int    `json:"id"`
-	Name      string `json:"name"`
-	IP        string `json:"ip"`
-	Port      int    `json:"port"`
-	Username  string `json:"username"`
-	Password  string `json:"password"`
-	Type      string `json:"type"`
-	Status    int    `json:"status"`
-	IsDefault int    `json:"is_default"`
-	CreatedAt string `json:"created_at"`
 }
 
 func (m *MediaServerDB) Close() error {

@@ -1,9 +1,14 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import type { Device, ChannelInfo } from '@/types/api'
+import type { Device, ChannelInfo } from '@/api/types'
 import { ElMessage } from 'element-plus'
-import { Search, Refresh, Expand, List, InfoFilled } from '@element-plus/icons-vue'
-import { useDevices, useChannels, useDevicesLoading, fetchDevicesAndChannels } from '@/stores/devices'
+import {
+  useDevices,
+  useChannels,
+  useDevicesLoading,
+  fetchDevicesAndChannels,
+} from '@/stores/devices'
+import SearchBox from '@/components/common/SearchBox.vue'
 
 interface DeviceNode {
   device_id: string
@@ -22,7 +27,9 @@ const expandedKeys = ref<string[]>([])
 const deviceNodes = computed(() => {
   const nodes: DeviceNode[] = []
   for (const device of devices.value) {
-    const deviceChannels = channels.value.filter(channel => channel.parent_id === device.device_id)
+    const deviceChannels = channels.value.filter(
+      (channel: ChannelInfo) => channel.parent_id === device.device_id,
+    )
     const deviceNode: DeviceNode = {
       device_id: device.device_id,
       label: device.name || '未命名',
@@ -30,7 +37,7 @@ const deviceNodes = computed(() => {
         device_id: channel.device_id,
         label: `${channel.name}`,
         isChannel: true,
-        channelInfo: channel
+        channelInfo: channel,
       })),
     }
     nodes.push(deviceNode)
@@ -55,7 +62,7 @@ const emit = defineEmits<{
 const handleSelect = (data: DeviceNode) => {
   if (data.isChannel && data.channelInfo) {
     emit('select', {
-      device: devices.value.find((d) => d.device_id === data.channelInfo?.parent_id),
+      device: devices.value.find((d: Device) => d.device_id === data.channelInfo?.parent_id),
       channel: data.channelInfo,
     })
   }
@@ -64,7 +71,7 @@ const handleSelect = (data: DeviceNode) => {
 const handleNodeDbClick = (data: DeviceNode) => {
   if (data.isChannel && data.channelInfo) {
     emit('play', {
-      device: devices.value.find((d) => d.device_id === data.channelInfo?.parent_id),
+      device: devices.value.find((d: Device) => d.device_id === data.channelInfo?.parent_id),
       channel: data.channelInfo,
     })
   }
@@ -77,31 +84,36 @@ const filteredData = computed(() => {
   const query = searchQuery.value.trim().toLowerCase()
 
   if (viewMode.value === 'list') {
-    const allChannels = nodes.flatMap(node => 
-      (node.children || []).map(channel => ({
+    const allChannels = nodes.flatMap((node) =>
+      (node.children || []).map((channel) => ({
         ...channel,
-        parentDeviceId: node.device_id
-      }))
+        parentDeviceId: node.device_id,
+      })),
     )
-    
+
     if (!query) {
-      return [{
-        label: '所有通道',
-        device_id: 'root',
-        children: allChannels
-      }]
+      return [
+        {
+          label: '所有通道',
+          device_id: 'root',
+          children: allChannels,
+        },
+      ]
     }
 
-    const filteredChannels = allChannels.filter(channel => 
-      channel.label.toLowerCase().includes(query) ||
-      channel.device_id.toLowerCase().includes(query)
+    const filteredChannels = allChannels.filter(
+      (channel) =>
+        channel.label.toLowerCase().includes(query) ||
+        channel.device_id.toLowerCase().includes(query),
     )
 
-    return [{
-      label: '所有通道',
-      device_id: 'root',
-      children: filteredChannels
-    }]
+    return [
+      {
+        label: '所有通道',
+        device_id: 'root',
+        children: filteredChannels,
+      },
+    ]
   }
 
   if (!query) {
@@ -143,39 +155,17 @@ const filteredData = computed(() => {
 })
 
 const tooltipRef = ref()
-
 </script>
 
 <template>
   <div class="device-tree">
-    <div class="search-box">
-      <div class="search-wrapper">
-        <el-input v-model="searchQuery" placeholder="搜索设备或通道..." clearable size="small">
-          <template #prefix>
-            <el-icon><Search /></el-icon>
-          </template>
-        </el-input>
-        <div class="action-buttons">
-          <el-tooltip :content="viewMode === 'tree' ? '切换到列表视图' : '切换到树形视图'" placement="top">
-            <el-button
-              class="action-btn"
-              :icon="viewMode === 'tree' ? List : Expand"
-              size="small"
-              @click="viewMode = viewMode === 'tree' ? 'list' : 'tree'"
-            />
-          </el-tooltip>
-          <el-tooltip ref="tooltipRef" content="刷新设备列表" placement="top">
-            <el-button
-              class="action-btn refresh-btn"
-              :icon="Refresh"
-              size="small"
-              :loading="loading"
-              @click="refreshDevices"
-            />
-          </el-tooltip>
-        </div>
-      </div>
-    </div>
+    <SearchBox
+      v-model:searchQuery="searchQuery"
+      v-model:viewMode="viewMode"
+      :loading="loading"
+      :show-view-mode-switch="true"
+      @refresh="refreshDevices"
+    />
 
     <el-tree
       v-if="viewMode === 'tree'"
@@ -197,8 +187,7 @@ const tooltipRef = ref()
         <span class="custom-tree-node" @dblclick.stop="handleNodeDbClick(data)">
           <span :class="data.isChannel ? 'channel-label' : 'device-label'">
             {{ data.label }}
-            <template v-if="data.isChannel && data.channelInfo">
-            </template>
+            <template v-if="data.isChannel && data.channelInfo"> </template>
           </span>
           <el-tag
             v-if="data.isChannel"
@@ -306,7 +295,7 @@ const tooltipRef = ref()
 
       &.refresh-btn {
         color: var(--el-color-primary);
-        
+
         &:hover {
           background-color: var(--el-color-primary-light-9);
         }
@@ -421,7 +410,7 @@ const tooltipRef = ref()
 
   :deep(.el-tree) {
     background: transparent;
-    
+
     .el-tree-node__content {
       height: 36px;
       padding-left: 8px !important;
@@ -479,7 +468,7 @@ const tooltipRef = ref()
   .el-tag {
     transition: all 0.2s ease;
     transform-origin: right;
-    
+
     &:not(:first-child) {
       margin-left: 4px;
     }
@@ -504,7 +493,8 @@ const tooltipRef = ref()
 }
 
 .custom-tree-node {
-  .channel-label, .device-label {
+  .channel-label,
+  .device-label {
     display: flex;
     align-items: center;
     gap: 4px;

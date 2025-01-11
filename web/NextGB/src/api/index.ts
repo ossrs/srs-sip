@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
-import type { Device, ApiResponse, ChannelInfo, MediaServer, RecordInfo } from '@/types/api'
+import type * as Types from './types'
+import type { MediaServer } from '@/api/mediaserver/types'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_APP_API_BASE_URL,
@@ -13,60 +14,54 @@ const api = axios.create({
 // 媒体服务器相关 API
 export const mediaServerApi = {
   // 获取媒体服务器列表
-  getMediaServers: () => api.get<ApiResponse<MediaServer[]>>('/srs-sip/v1/media-servers'),
+  getMediaServers: () =>
+    api.get<Types.ApiResponse<MediaServer[]>>('/srs-sip/v1/media-servers'),
 
   // 添加媒体服务器
-  addMediaServer: (data: {
-    name: string
-    ip: string
-    port: number
-    type: string
-    username?: string
-    password?: string
-  }) => api.post<ApiResponse<{ msg: string }>>('/srs-sip/v1/media-servers', data),
+  addMediaServer: (data: Omit<MediaServer, 'id' | 'status' | 'created_at'>) => 
+    api.post<Types.ApiResponse<{ msg: string }>>('/srs-sip/v1/media-servers', data),
 
   // 删除媒体服务器
   deleteMediaServer: (id: number) =>
-    api.delete<ApiResponse<{ msg: string }>>(`/srs-sip/v1/media-servers/${id}`),
+    api.delete<Types.ApiResponse<{ msg: string }>>(`/srs-sip/v1/media-servers/${id}`),
 
   // 设置默认媒体服务器
   setDefaultMediaServer: (id: number) =>
-    api.post<ApiResponse<{ msg: string }>>(`/srs-sip/v1/media-servers/default/${id}`),
-
-  // 检查服务器状态
-  checkStatus: (server: MediaServer) => {
-    const url = `http://${server.ip}:${server.port}/api/v1/versions`
-    return api.get<ApiResponse<any>>(url, { timeout: 2000 })
-  },
+    api.post<Types.ApiResponse<{ msg: string }>>(`/srs-sip/v1/media-servers/default/${id}`),
 }
 
 // 设备相关 API
 export const deviceApi = {
   // 获取设备列表
-  getDevices: () => api.get<ApiResponse<Device[]>>('/srs-sip/v1/devices'),
+  getDevices: () => api.get<Types.ApiResponse<Types.Device[]>>('/srs-sip/v1/devices'),
 
   // 获取设备通道
   getDeviceChannels: (deviceId: string) =>
-    api.get<ApiResponse<ChannelInfo[]>>(`/srs-sip/v1/devices/${deviceId}/channels`),
+    api.get<Types.ApiResponse<Types.ChannelInfo[]>>(`/srs-sip/v1/devices/${deviceId}/channels`),
 
   // 添加 invite API
-  inviteStream: (params: {
-    media_server_addr: string
-    device_id: string
-    channel_id: string
-    sub_stream: number
-    play_type: number
-    start_time: number
-    end_time: number
-  }) => api.post<ApiResponse<any>>('/srs-sip/v1/invite', params),
+  invite: (params: Types.InviteRequest) =>
+    api.post<Types.ApiResponse<Types.InviteResponse>>('/srs-sip/v1/invite', params),
+
+  // 停止播放
+  bye: (params: Types.ByeRequest) => api.post<Types.ApiResponse<any>>('/srs-sip/v1/bye', params),
+
+  // 暂停播放
+  pause: (params: Types.PauseRequest) => api.post<Types.ApiResponse<any>>('/srs-sip/v1/pause', params),
+
+  // 恢复播放
+  resume: (params: Types.ResumeRequest) => api.post<Types.ApiResponse<any>>('/srs-sip/v1/resume', params),
+
+  // 设置播放速度
+  speed: (params: Types.SpeedRequest) => api.post<Types.ApiResponse<any>>('/srs-sip/v1/speed', params),
 
   // 云台控制
-  controlPTZ: (params: { device_id: string; channel_id: string; ptz: string; speed: string }) =>
-    api.post<ApiResponse<any>>('/srs-sip/v1/ptz', params),
+  controlPTZ: (params: Types.PTZControlRequest) =>
+    api.post<Types.ApiResponse<any>>('/srs-sip/v1/ptz', params),
 
   // 查询录像
-  queryRecord: (params: { device_id: string; channel_id: string; start_time: number; end_time: number }) =>
-    api.post<ApiResponse<RecordInfo[]>>('/srs-sip/v1/query-record', params),
+  queryRecord: (params: Types.RecordInfoRequest) =>
+    api.post<Types.ApiResponse<Types.RecordInfoResponse[]>>('/srs-sip/v1/query-record', params),
 }
 
 // 请求拦截器
@@ -83,7 +78,7 @@ api.interceptors.request.use(
 // 响应拦截器
 api.interceptors.response.use(
   (response) => {
-    const res = response.data as ApiResponse<any>
+    const res = response.data as Types.ApiResponse<any>
     if (res.code !== 0) {
       ElMessage.error('请求失败')
       return Promise.reject(new Error('请求失败'))

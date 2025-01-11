@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import SystemForm from '@/components/settings/SystemForm.vue'
+import SystemForm from '@/views/setting/SystemForm.vue'
 </script>
 
 <template>

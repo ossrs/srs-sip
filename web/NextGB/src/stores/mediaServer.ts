@@ -1,7 +1,8 @@
 import { ref } from 'vue'
-import type { MediaServer } from '@/types/api'
+import type { MediaServer } from '@/api/mediaserver/types'
 import { mediaServerApi } from '@/api'
 import { ElMessage } from 'element-plus'
+import { createMediaServer } from '@/api/mediaserver/factory'
 
 // 所有媒体服务器列表
 const mediaServers = ref<MediaServer[]>([])
@@ -14,9 +15,11 @@ const loading = ref(false)
 export const checkServersStatus = async () => {
   for (const server of mediaServers.value) {
     try {
-      await mediaServerApi.checkStatus(server)
+      const mediaServer = createMediaServer(server)
+      await mediaServer.getVersion()
       server.status = 1 // 在线
     } catch (error) {
+      console.error(`检查服务器 ${server.name} 状态失败:`, error)
       server.status = 0 // 离线
     }
   }
@@ -28,15 +31,17 @@ export const fetchMediaServers = async () => {
     loading.value = true
     const response = await mediaServerApi.getMediaServers()
     // 确保 mediaServers 始终是数组，并将 is_default 映射为 isDefault
-    mediaServers.value = Array.isArray(response.data) ? response.data.map((server: any) => ({
-      ...server,
-      isDefault: server.is_default
-    })) : []
-    
+    mediaServers.value = Array.isArray(response.data)
+      ? response.data.map((server: any) => ({
+          ...server,
+          isDefault: server.is_default,
+        }))
+      : []
+
     if (mediaServers.value.length > 0) {
       await checkServersStatus()
       // 找到默认服务器并更新 defaultMediaServer
-      const defaultServer = mediaServers.value.find(server => server.isDefault === 1)
+      const defaultServer = mediaServers.value.find((server: MediaServer) => server.isDefault === 1)
       if (defaultServer) {
         defaultMediaServer.value = defaultServer
       }
@@ -54,19 +59,18 @@ export const setDefaultMediaServer = async (server: MediaServer) => {
   try {
     // 调用后端API设置默认服务器
     await mediaServerApi.setDefaultMediaServer(server.id)
-    
+
     // 更新前端状态
-    mediaServers.value.forEach((s) => {
+    mediaServers.value.forEach((s: MediaServer) => {
       s.isDefault = s.id === server.id ? 1 : 0
     })
-    
+
     // 更新默认服务器引用
-    defaultMediaServer.value = mediaServers.value.find(s => s.id === server.id) || null
-    
+    defaultMediaServer.value = mediaServers.value.find((s: MediaServer) => s.id === server.id) || null
+
     ElMessage.success('已设为默认节点')
   } catch (error) {
-    console.error('设置默认服务器失败:', error)
-    ElMessage.error('设置默认节点失败')
+    ElMessage.error(error instanceof Error ? error.message : '设置默认节点失败')
     throw error
   }
 }
@@ -78,7 +82,7 @@ export const deleteMediaServer = async (server: MediaServer) => {
     if (server.isDefault) {
       defaultMediaServer.value = null
     }
-    
+
     await mediaServerApi.deleteMediaServer(server.id)
     ElMessage.success('删除成功')
     await fetchMediaServers()
@@ -88,10 +92,9 @@ export const deleteMediaServer = async (server: MediaServer) => {
   }
 }
 
-
 // 获取所有媒体服务器列表
 export const useMediaServers = () => mediaServers
 // 获取默认媒体服务器
 export const useDefaultMediaServer = () => defaultMediaServer
 // 获取加载状态
-export const useMediaServersLoading = () => loading 
+export const useMediaServersLoading = () => loading

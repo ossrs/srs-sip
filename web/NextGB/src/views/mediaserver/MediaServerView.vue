@@ -2,21 +2,19 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus, Refresh } from '@element-plus/icons-vue'
-import MediaServerCard from '../components/mediaserver/MediaServerCard.vue'
-import type { MediaServer } from '@/types/api'
+import MediaServerCard from './MediaServerCard.vue'
+import type { MediaServer } from '@/api/mediaserver/types'
 import { mediaServerApi } from '@/api'
-import { 
+import {
   useMediaServers,
   useDefaultMediaServer,
   fetchMediaServers,
   setDefaultMediaServer,
   deleteMediaServer,
-  checkServersStatus
+  checkServersStatus,
 } from '@/stores/mediaServer'
 
 const mediaServers = useMediaServers()
-const defaultMediaServer = useDefaultMediaServer()
-let statusCheckTimer: number | null = null
 
 // 表单校验规则
 const rules = {
@@ -38,14 +36,26 @@ const rules = {
       trigger: 'blur',
     },
   ],
-  type: [
-    { required: true, message: '请选择服务器类型', trigger: 'change' },
+  type: [{ required: true, message: '请选择服务器类型', trigger: 'change' }],
+  secret: [
+    { 
+      validator: (rule: any, value: string, callback: Function) => {
+        if (newServer.value.type === 'ZLM' && !value) {
+          callback(new Error('请输入 SECRET'))
+        } else {
+          callback()
+        }
+      },
+      trigger: 'blur'
+    }
   ],
 }
 
 const formRef = ref()
 const dialogVisible = ref(false)
-const newServer = ref<Pick<MediaServer, 'name' | 'ip' | 'port' | 'type' | 'username' | 'password' | 'isDefault'>>({
+const newServer = ref<
+  Pick<MediaServer, 'name' | 'ip' | 'port' | 'type' | 'username' | 'password' | 'isDefault' | 'secret'>
+>({
   name: '',
   ip: '',
   port: 1985,
@@ -53,6 +63,7 @@ const newServer = ref<Pick<MediaServer, 'name' | 'ip' | 'port' | 'type' | 'usern
   username: '',
   password: '',
   isDefault: 0,
+  secret: '',
 })
 
 const handleAdd = () => {
@@ -66,6 +77,7 @@ const handleAdd = () => {
     username: '',
     password: '',
     isDefault: 0,
+    secret: '',
   }
 }
 
@@ -93,8 +105,10 @@ const submitForm = async () => {
       type: newServer.value.type,
       username: newServer.value.username,
       password: newServer.value.password,
+      isDefault: newServer.value.isDefault,
+      ...(newServer.value.type === 'ZLM' ? { secret: newServer.value.secret } : {}),
     })
-    
+
     dialogVisible.value = false
     ElMessage.success('添加成功')
     await fetchMediaServers()
@@ -153,24 +167,27 @@ onMounted(() => {
           <el-input v-model="newServer.name" placeholder="请输入节点名称" clearable />
         </el-form-item>
 
+        <el-form-item label="服务器类型">
+          <el-radio-group v-model="newServer.type">
+            <el-radio value="SRS">SRS</el-radio>
+            <el-radio value="ZLM">ZLM</el-radio>
+          </el-radio-group>
+        </el-form-item>
+
         <el-form-item label="IP地址" prop="ip">
           <el-input v-model="newServer.ip" placeholder="请输入IP地址" clearable />
         </el-form-item>
 
         <el-form-item label="端口" prop="port">
-          <el-input-number
-            v-model="newServer.port"
-            :min="1"
-            :max="65535"
+          <el-input
+            v-model.number="newServer.port"
             placeholder="请输入端口号"
-            style="width: 100%"
+            clearable
           />
         </el-form-item>
 
-        <el-form-item label="服务器类型">
-          <el-radio-group v-model="newServer.type">
-            <el-radio value="SRS">SRS</el-radio>
-          </el-radio-group>
+        <el-form-item v-if="newServer.type === 'ZLM'" label="SECRET" prop="secret">
+          <el-input v-model="newServer.secret" placeholder="请输入 SECRET" clearable show-password />
         </el-form-item>
 
         <el-form-item label="设为默认">
@@ -208,5 +225,10 @@ onMounted(() => {
 
 :deep(.el-input-number) {
   width: 100%;
+}
+
+/* 隐藏验证图标（包括错误和成功状态） */
+:deep(.el-input__validateIcon) {
+  display: none !important;
 }
 </style>
