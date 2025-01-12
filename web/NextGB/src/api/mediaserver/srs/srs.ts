@@ -1,4 +1,4 @@
-import type { ClientInfo, StreamInfo, VersionInfo } from '@/api/mediaserver/types'
+import type { ClientInfo, StreamInfo, VersionInfo, RtcPlayer } from '@/api/mediaserver/types'
 import { MediaServerType } from '@/api/mediaserver/types'
 import { BaseMediaServer } from '@/api/mediaserver/base'
 import axios from 'axios'
@@ -101,12 +101,7 @@ interface ParsedUrl {
   user_query: UserQuery
 }
 
-interface RtcPlayer {
-  pc: RTCPeerConnection
-  play: (url: string) => Promise<any>
-  close: () => void
-  ontrack: ((event: RTCTrackEvent) => void) | null
-}
+
 
 export class SRSServer extends BaseMediaServer {
   private baseUrl: string
@@ -227,7 +222,7 @@ export class SRSServer extends BaseMediaServer {
         return session
       },
 
-      close() {
+      async close() {
         this.pc.close()
       },
 

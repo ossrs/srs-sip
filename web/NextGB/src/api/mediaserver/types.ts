@@ -7,6 +7,13 @@ export enum MediaServerType {
   CUSTOM = 'custom', // 自定义服务器
 }
 
+export interface RtcPlayer {
+  pc: RTCPeerConnection
+  play(url: string): Promise<void>
+  close(): Promise<void>
+  ontrack: ((event: RTCTrackEvent) => void) | null
+}
+
 export interface MediaServer {
   id: number
   name: string

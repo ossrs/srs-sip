@@ -177,7 +177,7 @@ func (s *UAS) InitMediaServer(req models.InviteRequest) error {
 }
 
 func (s *UAS) Invite(req models.InviteRequest) (*Session, error) {
-	key := fmt.Sprintf("%s:%s:%d:%d:%d:%d", req.DeviceID, req.ChannelID, req.SubStream, req.PlayType, req.StartTime, req.EndTime)
+	key := fmt.Sprintf("%d:%s:%s:%d:%d:%d:%d", req.MediaServerId, req.DeviceID, req.ChannelID, req.SubStream, req.PlayType, req.StartTime, req.EndTime)
 
 	// Check if stream already exists
 	if s.isPublishing(key) {

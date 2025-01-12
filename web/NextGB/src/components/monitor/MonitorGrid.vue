@@ -67,10 +67,6 @@ const startWebRTCPlay = async (url: string, index: number, device: DeviceWithCha
   // 目前只有SRS支持WebRTC播放
   const serverType = defaultMediaServer.value.type.toLowerCase()
   console.log('当前媒体服务器类型:', serverType)
-  
-  if (serverType !== 'srs') {
-    throw new Error(`当前媒体服务器类型(${serverType})不支持WebRTC播放，请使用SRS类型的服务器`)
-  }
 
   const mediaServer = createMediaServer(defaultMediaServer.value)
   const player = (mediaServer as any).createRtcPlayer()

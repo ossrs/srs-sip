@@ -1,5 +1,6 @@
-import type { ClientInfo, StreamInfo, VersionInfo } from './types'
+import type { ClientInfo, StreamInfo, VersionInfo, RtcPlayer } from './types'
 import { MediaServerType } from './types'
+
 
 /**
  * 媒体服务器接口
@@ -9,6 +10,7 @@ export interface IMediaServer {
   getVersion(): Promise<VersionInfo>
   getStreamInfo(): Promise<StreamInfo[]>
   getClientInfo(): Promise<ClientInfo[]>
+  createRtcPlayer(): RtcPlayer
 }
 
 /**
@@ -24,4 +26,5 @@ export abstract class BaseMediaServer implements IMediaServer {
   abstract getVersion(): Promise<VersionInfo>
   abstract getStreamInfo(): Promise<StreamInfo[]>
   abstract getClientInfo(): Promise<ClientInfo[]>
+  abstract createRtcPlayer(): RtcPlayer
 }

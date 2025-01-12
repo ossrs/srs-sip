@@ -55,5 +55,5 @@ func (z *Zlm) GetAddr() string {
 }
 
 func (z *Zlm) GetWebRTCAddr(id string) string {
-	return "webrtc://" + z.Addr + "/index/api/webrtc?app=live&stream=" + id + "&type=play"
+	return "http://" + z.Addr + "/index/api/webrtc?app=rtp&stream=" + id + "&type=play"
 }
