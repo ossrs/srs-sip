@@ -1,0 +1,22 @@
+# 通用配置
+common:
+  log-level: "info"
+
+# GB28181配置
+gb28181:
+  serial: "34020000002000000001"
+  realm: "3402000000"
+  host: "0.0.0.0"
+  port: 5060
+  auth:
+    enable: false
+    password: "123456"
+
+# HTTP服务配置
+http_server:
+  listen: 8025
+  dir: ./html
+
+# HTTP API配置
+http_api:
+  listen: 2025

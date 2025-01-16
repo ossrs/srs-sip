@@ -14,7 +14,6 @@ import (
 	"github.com/ossrs/srs-sip/pkg/api"
 	"github.com/ossrs/srs-sip/pkg/config"
 	"github.com/ossrs/srs-sip/pkg/service"
-	"github.com/ossrs/srs-sip/pkg/utils"
 )
 
 func WaitTerminationSignal(cancel context.CancelFunc) {
@@ -28,7 +27,12 @@ func WaitTerminationSignal(cancel context.CancelFunc) {
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	conf := utils.Parse(ctx)
+	conf, err := config.LoadConfig("config.yaml")
+	if err != nil {
+		logger.E(nil, "load config failed: %v", err)
+		return
+	}
+
 	sipSvr, err := service.NewService(ctx, conf)
 	if err != nil {
 		logger.Ef("create service failed. err is %v", err.Error())
@@ -47,25 +51,43 @@ func main() {
 	}
 	apiSvr.Start()
 
-	var targetDir string
-	targetDirs := []string{"./web/html", "../web/html"}
-	for _, dir := range targetDirs {
-		if _, err := os.Stat(path.Join(dir, "index.html")); err == nil {
-			targetDir = dir
-			break
+	// 使用配置中指定的目录，如果不存在则尝试备选目录
+	targetDir := conf.HttpServer.Dir
+	if _, err := os.Stat(path.Join(targetDir, "index.html")); err != nil {
+		backupDirs := []string{"./html", "../web/NextGB/dist"}
+		for _, dir := range backupDirs {
+			if _, err := os.Stat(path.Join(dir, "index.html")); err == nil {
+				targetDir = dir
+				break
+			}
 		}
 	}
 	if targetDir == "" {
-		logger.Ef(ctx, "index.html not found in %v", targetDirs)
+		logger.Ef(ctx, "index.html not found")
 		return
 	}
 
 	go func() {
-		c := conf.(*config.MainConfig)
-		httpPort := strconv.Itoa(c.HttpServerPort)
+		httpPort := strconv.Itoa(conf.HttpServer.Port)
+
+		// 创建文件服务器
+		fs := http.FileServer(http.Dir(targetDir))
+
+		// 自定义处理器
+		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// 检查请求的文件是否存在
+			filePath := path.Join(targetDir, r.URL.Path)
+			_, err := os.Stat(filePath)
+			if os.IsNotExist(err) {
+				// 如果文件不存在，返回 index.html
+				r.URL.Path = "/"
+			}
+			fs.ServeHTTP(w, r)
+		})
+
 		server := &http.Server{
 			Addr:              ":" + httpPort,
-			Handler:           http.FileServer(http.Dir(targetDir)),
+			Handler:           handler,
 			ReadTimeout:       10 * time.Second,
 			WriteTimeout:      10 * time.Second,
 			IdleTimeout:       30 * time.Second,

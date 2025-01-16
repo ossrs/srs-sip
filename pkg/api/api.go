@@ -35,7 +35,7 @@ func (h *HttpApiServer) Start() {
 
 	go func() {
 		ctx := context.Background()
-		addr := fmt.Sprintf(":%v", h.conf.APIPort)
+		addr := fmt.Sprintf(":%v", h.conf.HttpApi.Port)
 		logger.Tf(ctx, "http api listen on %s", addr)
 		err := http.ListenAndServe(addr, handlers.CORS(headers, methods, origins)(router))
 		if err != nil {

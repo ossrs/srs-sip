@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
 	"sync"
 
 	"github.com/emiago/sipgo"
@@ -83,19 +84,23 @@ func (s *UAS) startSipServer(agent *sipgo.UserAgent, ctx context.Context, r0 int
 		return err
 	}
 
+	candidate := os.Getenv("CANDIDATE")
+	if candidate != "" {
+		MediaDB.AddMediaServer("Default", "SRS", candidate, 1985, "", "", "", 1)
+	}
 	return nil
 }
 
 func (s *UAS) startUDP() error {
 	lis, err := net.ListenUDP("udp", &net.UDPAddr{
 		IP:   net.IPv4(0, 0, 0, 0),
-		Port: s.conf.SipPort,
+		Port: s.conf.GB28181.Port,
 	})
 	if err != nil {
-		return fmt.Errorf("cannot listen on the UDP signaling port %d: %w", s.conf.SipPort, err)
+		return fmt.Errorf("cannot listen on the UDP signaling port %d: %w", s.conf.GB28181.Port, err)
 	}
 	s.sipConnUDP = lis
-	logger.Tf(s.ctx, "sip signaling listening on UDP %s:%d", lis.LocalAddr().String(), s.conf.SipPort)
+	logger.Tf(s.ctx, "sip signaling listening on UDP %s:%d", lis.LocalAddr().String(), s.conf.GB28181.Port)
 
 	go func() {
 		if err := s.sipSvr.ServeUDP(lis); err != nil {
@@ -108,13 +113,13 @@ func (s *UAS) startUDP() error {
 func (s *UAS) startTCP() error {
 	lis, err := net.ListenTCP("tcp", &net.TCPAddr{
 		IP:   net.IPv4(0, 0, 0, 0),
-		Port: s.conf.SipPort,
+		Port: s.conf.GB28181.Port,
 	})
 	if err != nil {
-		return fmt.Errorf("cannot listen on the TCP signaling port %d: %w", s.conf.SipPort, err)
+		return fmt.Errorf("cannot listen on the TCP signaling port %d: %w", s.conf.GB28181.Port, err)
 	}
 	s.sipConnTCP = lis
-	logger.Tf(s.ctx, "sip signaling listening on TCP %s:%d", lis.Addr().String(), s.conf.SipPort)
+	logger.Tf(s.ctx, "sip signaling listening on TCP %s:%d", lis.Addr().String(), s.conf.GB28181.Port)
 
 	go func() {
 		if err := s.sipSvr.ServeTCP(lis); err != nil && !errors.Is(err, net.ErrClosed) {

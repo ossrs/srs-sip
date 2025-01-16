@@ -1,38 +1,9 @@
 package utils
 
 import (
-	"context"
 	"crypto/rand"
-	"flag"
 	"math/big"
-	"os"
-
-	"github.com/ossrs/srs-sip/pkg/config"
 )
-
-func Parse(ctx context.Context) interface{} {
-	fl := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
-
-	var conf config.MainConfig
-	fl.StringVar(&conf.Serial, "serial", "34020000002000000001", "The serial number")
-	fl.StringVar(&conf.Realm, "realm", "3402000000", "The realm")
-	fl.StringVar(&conf.SipHost, "sip-host", "0.0.0.0", "The SIP host")
-	fl.IntVar(&conf.SipPort, "sip-port", 5060, "The SIP port")
-	fl.BoolVar(&conf.EnableAuth, "enable-auth", false, "Enable authentication")
-	fl.StringVar(&conf.Password, "password", "123456", "The password")
-	fl.IntVar(&conf.HttpServerPort, "http-server-port", 8888, "The port of http server")
-	fl.IntVar(&conf.APIPort, "api-port", 2020, "The port of http api server")
-
-	fl.Usage = func() {
-		fl.PrintDefaults()
-	}
-
-	if err := fl.Parse(os.Args[1:]); err == flag.ErrHelp {
-		os.Exit(0)
-	}
-
-	return &conf
-}
 
 func GenRandomNumber(n int) string {
 	var result string

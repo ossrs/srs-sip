@@ -230,12 +230,12 @@ func (s *UAS) Invite(req models.InviteRequest) (*Session, error) {
 		return nil, errors.Errorf("device not found by %s", req.ChannelID)
 	}
 
-	subject := fmt.Sprintf("%s:%s,%s:0", req.ChannelID, ssrc, s.conf.Serial)
+	subject := fmt.Sprintf("%s:%s,%s:0", req.ChannelID, ssrc, s.conf.GB28181.Serial)
 
 	reqInvite, err := stack.NewInviteRequest([]byte(strings.Join(sdpInfo, "\r\n")), subject, stack.OutboundConfig{
 		Via:       d.SourceAddr,
 		To:        d.DeviceID,
-		From:      s.conf.Serial,
+		From:      s.conf.GB28181.Serial,
 		Transport: d.NetworkType,
 	})
 	if err != nil {
@@ -372,7 +372,7 @@ func (s *UAS) Catalog(deviceID string) error {
 	req, err := stack.NewMessageRequest([]byte(body), stack.OutboundConfig{
 		Via:       d.SourceAddr,
 		To:        d.DeviceID,
-		From:      s.conf.Serial,
+		From:      s.conf.GB28181.Serial,
 		Transport: d.NetworkType,
 	})
 	if err != nil {
@@ -438,7 +438,7 @@ func (s *UAS) ControlPTZ(deviceID, channelID, ptz, speed string) error {
 	req, err := stack.NewMessageRequest([]byte(body), stack.OutboundConfig{
 		Via:       d.SourceAddr,
 		To:        d.DeviceID,
-		From:      s.conf.Serial,
+		From:      s.conf.GB28181.Serial,
 		Transport: d.NetworkType,
 	})
 	if err != nil {
@@ -477,7 +477,7 @@ func (s *UAS) QueryRecord(deviceID, channelID string, startTime, endTime int64) 
 	req, err := stack.NewMessageRequest([]byte(body), stack.OutboundConfig{
 		Via:       d.SourceAddr,
 		To:        d.DeviceID,
-		From:      s.conf.Serial,
+		From:      s.conf.GB28181.Serial,
 		Transport: d.NetworkType,
 	})
 	if err != nil {

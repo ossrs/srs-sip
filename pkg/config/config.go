@@ -3,19 +3,93 @@ package config
 import (
 	"fmt"
 	"net"
+	"os"
+
+	"gopkg.in/yaml.v3"
 )
 
+// 通用配置
+type CommonConfig struct {
+	LogLevel string `yaml:"log-level"`
+	LogFile  string `yaml:"log-file"`
+}
+
+// GB28181配置
+type GB28181AuthConfig struct {
+	Enable   bool   `yaml:"enable"`
+	Password string `yaml:"password"`
+}
+
+type GB28181Config struct {
+	Serial string            `yaml:"serial"`
+	Realm  string            `yaml:"realm"`
+	Host   string            `yaml:"host"`
+	Port   int               `yaml:"port"`
+	Auth   GB28181AuthConfig `yaml:"auth"`
+}
+
+// HTTP服务配置
+type HttpServerConfig struct {
+	Port int    `yaml:"listen"`
+	Dir  string `yaml:"dir"`
+}
+
+type HttpApiConfig struct {
+	Port int `yaml:"listen"`
+}
+
+// 主配置结构
 type MainConfig struct {
-	Serial  string `ymal:"serial"`
-	Realm   string `ymal:"realm"`
-	SipHost string `ymal:"sip-host"`
-	SipPort int    `ymal:"sip-port"`
+	Common     CommonConfig     `yaml:"common"`
+	GB28181    GB28181Config    `yaml:"gb28181"`
+	HttpServer HttpServerConfig `yaml:"http_server"`
+	HttpApi    HttpApiConfig    `yaml:"http_api"`
+}
 
-	EnableAuth bool   `ymal:"enable-auth"`
-	Password   string `ymal:"password"`
+// 获取默认配置
+func DefaultConfig() *MainConfig {
+	return &MainConfig{
+		Common: CommonConfig{
+			LogLevel: "info",
+			LogFile:  "app.log",
+		},
+		GB28181: GB28181Config{
+			Serial: "34020000002000000001",
+			Realm:  "3402000000",
+			Host:   "0.0.0.0",
+			Port:   5060,
+			Auth: GB28181AuthConfig{
+				Enable:   false,
+				Password: "123456",
+			},
+		},
+		HttpServer: HttpServerConfig{
+			Port: 8025,
+			Dir:  "./html",
+		},
+		HttpApi: HttpApiConfig{
+			Port: 2025,
+		},
+	}
+}
 
-	HttpServerPort int `ymal:"http-server-port"`
-	APIPort        int `ymal:"api-port"`
+func LoadConfig(filename string) (*MainConfig, error) {
+	// 如果配置文件不存在，返回默认配置
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		return DefaultConfig(), nil
+	}
+
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, fmt.Errorf("read config file failed: %v", err)
+	}
+
+	var config MainConfig
+	if err := yaml.Unmarshal(data, &config); err != nil {
+		return nil, fmt.Errorf("parse config file failed: %v", err)
+	}
+
+	return &config, nil
 }
 
 func GetLocalIP() (string, error) {
