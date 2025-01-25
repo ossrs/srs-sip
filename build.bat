@@ -22,8 +22,9 @@ go build -o %BINARY_NAME% %MAIN_PATH%
 
 echo Copying config file...
 if exist "%CONFIG_FILE%" (
-    copy /Y "%CONFIG_FILE%" "bin\"
-    echo Config file copied to bin\
+    mkdir "bin\%~dp0%CONFIG_FILE%" 2>nul
+    xcopy /s /i /y "%CONFIG_FILE%" "bin\%~dp0%CONFIG_FILE%\"
+    echo Config file copied to bin\%~dp0%CONFIG_FILE%
 ) else (
     echo Warning: %CONFIG_FILE% not found
 )

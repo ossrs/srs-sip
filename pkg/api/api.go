@@ -2,13 +2,10 @@ package api
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
-	"github.com/ossrs/go-oryx-lib/logger"
-
-	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
+	"github.com/ossrs/go-oryx-lib/logger"
 	"github.com/ossrs/srs-sip/pkg/config"
 	"github.com/ossrs/srs-sip/pkg/service"
 )
@@ -25,21 +22,24 @@ func NewHttpApiServer(r0 interface{}, svr *service.Service) (*HttpApiServer, err
 	}, nil
 }
 
-func (h *HttpApiServer) Start() {
-	router := mux.NewRouter().StrictSlash(true)
-	h.RegisterRoutes(router)
+func (h *HttpApiServer) Start(router *mux.Router) {
+	// 添加版本检查路由到主路由器
+	router.HandleFunc("/srs-sip", h.ApiGetAPIVersion).Methods(http.MethodGet)
 
-	headers := handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Authorization"})
-	methods := handlers.AllowedMethods([]string{"GET", "POST", "PUT", "DELETE", "OPTIONS"})
-	origins := handlers.AllowedOrigins([]string{"*"})
+	// 创建一个子路由，所有API都以/srs-sip/v1为前缀
+	apiRouter := router.PathPrefix("/srs-sip/v1").Subrouter()
 
-	go func() {
-		ctx := context.Background()
-		addr := fmt.Sprintf(":%v", h.conf.HttpApi.Port)
-		logger.Tf(ctx, "http api listen on %s", addr)
-		err := http.ListenAndServe(addr, handlers.CORS(headers, methods, origins)(router))
-		if err != nil {
-			panic(err)
-		}
-	}()
+	logger.Tf(context.Background(), "Registering API routes under /srs-sip/v1")
+	h.RegisterRoutes(apiRouter)
+
+	// 打印所有注册的路由，包含更详细的信息
+	router.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
+		pathTemplate, _ := route.GetPathTemplate()
+		pathRegexp, _ := route.GetPathRegexp()
+		methods, _ := route.GetMethods()
+		queries, _ := route.GetQueriesTemplates()
+		logger.Tf(context.Background(), "Route Details: Path=%v, Regexp=%v, Methods=%v, Queries=%v",
+			pathTemplate, pathRegexp, methods, queries)
+		return nil
+	})
 }

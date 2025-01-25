@@ -29,21 +29,16 @@ type GB28181Config struct {
 }
 
 // HTTP服务配置
-type HttpServerConfig struct {
+type HttpConfig struct {
 	Port int    `yaml:"listen"`
 	Dir  string `yaml:"dir"`
 }
 
-type HttpApiConfig struct {
-	Port int `yaml:"listen"`
-}
-
 // 主配置结构
 type MainConfig struct {
-	Common     CommonConfig     `yaml:"common"`
-	GB28181    GB28181Config    `yaml:"gb28181"`
-	HttpServer HttpServerConfig `yaml:"http_server"`
-	HttpApi    HttpApiConfig    `yaml:"http_api"`
+	Common  CommonConfig  `yaml:"common"`
+	GB28181 GB28181Config `yaml:"gb28181"`
+	Http    HttpConfig    `yaml:"http"`
 }
 
 // 获取默认配置
@@ -63,12 +58,9 @@ func DefaultConfig() *MainConfig {
 				Password: "123456",
 			},
 		},
-		HttpServer: HttpServerConfig{
+		Http: HttpConfig{
 			Port: 8025,
 			Dir:  "./html",
-		},
-		HttpApi: HttpApiConfig{
-			Port: 2025,
 		},
 	}
 }

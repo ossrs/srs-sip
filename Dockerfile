@@ -19,7 +19,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /app/srs-sip main/main.go
 
 # 最终运行阶段
 FROM ubuntu:22.04
-WORKDIR /usr/local/srs-sip
+WORKDIR /usr/local
 
 # 设置时区
 ENV TZ=Asia/Shanghai
@@ -69,6 +69,6 @@ stdout_logfile_maxbytes=0\n\
 stderr_logfile=/dev/stderr\n\
 stderr_logfile_maxbytes=0" > /etc/supervisor/conf.d/supervisord.conf
 
-EXPOSE 1935 2025 5060 8025 9000 5060/udp 8000/udp
+EXPOSE 1935 5060 8025 9000 5060/udp 8000/udp
 
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"] 

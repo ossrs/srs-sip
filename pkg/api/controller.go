@@ -11,34 +11,29 @@ import (
 )
 
 func (h *HttpApiServer) RegisterRoutes(router *mux.Router) {
-
-	apiV1Router := router.PathPrefix("/srs-sip/v1").Subrouter()
-
 	// Add Auth middleware
 	//apiV1Router.Use(authMiddleware)
 
-	apiV1Router.HandleFunc("/devices", h.ApiListDevices).Methods(http.MethodGet)
-	apiV1Router.HandleFunc("/devices/{id}/channels", h.ApiGetChannelByDeviceId).Methods(http.MethodGet)
-	apiV1Router.HandleFunc("/channels", h.ApiGetAllChannels).Methods(http.MethodGet)
+	router.HandleFunc("/devices", h.ApiListDevices).Methods(http.MethodGet)
+	router.HandleFunc("/devices/{id}/channels", h.ApiGetChannelByDeviceId).Methods(http.MethodGet)
+	router.HandleFunc("/channels", h.ApiGetAllChannels).Methods(http.MethodGet)
 
-	apiV1Router.HandleFunc("/invite", h.ApiInvite).Methods(http.MethodPost)
-	apiV1Router.HandleFunc("/bye", h.ApiBye).Methods(http.MethodPost)
-	apiV1Router.HandleFunc("/ptz", h.ApiPTZControl).Methods(http.MethodPost)
-	apiV1Router.HandleFunc("/pause", h.ApiPause).Methods(http.MethodPost)
-	apiV1Router.HandleFunc("/resume", h.ApiResume).Methods(http.MethodPost)
-	apiV1Router.HandleFunc("/speed", h.ApiSpeed).Methods(http.MethodPost)
+	router.HandleFunc("/invite", h.ApiInvite).Methods(http.MethodPost)
+	router.HandleFunc("/bye", h.ApiBye).Methods(http.MethodPost)
+	router.HandleFunc("/ptz", h.ApiPTZControl).Methods(http.MethodPost)
+	router.HandleFunc("/pause", h.ApiPause).Methods(http.MethodPost)
+	router.HandleFunc("/resume", h.ApiResume).Methods(http.MethodPost)
+	router.HandleFunc("/speed", h.ApiSpeed).Methods(http.MethodPost)
 
-	apiV1Router.HandleFunc("/query-record", h.ApiQueryRecord).Methods(http.MethodPost)
+	router.HandleFunc("/query-record", h.ApiQueryRecord).Methods(http.MethodPost)
 
 	// 媒体服务器相关接口，查询，新增，删除，用restful风格
-	apiV1Router.HandleFunc("/media-servers", h.ApiListMediaServers).Methods(http.MethodGet)
-	apiV1Router.HandleFunc("/media-servers", h.ApiAddMediaServer).Methods(http.MethodPost)
-	apiV1Router.HandleFunc("/media-servers/{id}", h.ApiDeleteMediaServer).Methods(http.MethodDelete)
-	apiV1Router.HandleFunc("/media-servers/default/{id}", h.ApiSetDefaultMediaServer).Methods(http.MethodPost)
+	router.HandleFunc("/media-servers", h.ApiListMediaServers).Methods(http.MethodGet)
+	router.HandleFunc("/media-servers", h.ApiAddMediaServer).Methods(http.MethodPost)
+	router.HandleFunc("/media-servers/{id}", h.ApiDeleteMediaServer).Methods(http.MethodDelete)
+	router.HandleFunc("/media-servers/default/{id}", h.ApiSetDefaultMediaServer).Methods(http.MethodPost)
 
-	apiV1Router.HandleFunc("", h.GetAPIRoutes(apiV1Router)).Methods(http.MethodGet)
-
-	router.HandleFunc("/srs-sip", h.ApiGetAPIVersion).Methods(http.MethodGet)
+	router.HandleFunc("", h.GetAPIRoutes(router)).Methods(http.MethodGet)
 }
 
 func (h *HttpApiServer) RespondWithJSON(w http.ResponseWriter, code int, data interface{}) {

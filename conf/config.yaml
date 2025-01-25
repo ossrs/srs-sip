@@ -13,10 +13,6 @@ gb28181:
     password: "123456"
 
 # HTTP服务配置
-http_server:
+http:
   listen: 8025
   dir: ./html
-
-# HTTP API配置
-http_api:
-  listen: 2025

@@ -26,8 +26,9 @@ build() {
     
     echo "Copying config file..."
     if [ -f "${CONFIG_FILE}" ]; then
-        cp "${CONFIG_FILE}" "bin/"
-        echo "Config file copied to bin/"
+        mkdir -p "bin/$(dirname ${CONFIG_FILE})"
+        cp -a "${CONFIG_FILE}" "bin/$(dirname ${CONFIG_FILE})/"
+        echo "Config file copied to bin/$(dirname ${CONFIG_FILE})/"
     else
         echo "Warning: ${CONFIG_FILE} not found"
     fi
@@ -130,6 +131,7 @@ vue_dev() {
 }
 
 build_all() {
+    clean
     build
     vue_build
 }
