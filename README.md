@@ -3,34 +3,31 @@
 ## Usage
 
 Pre-requisites:
-- Go 1.20+ is installed
-- GOPATH/bin is in your PATH
+- Go 1.23+
+- Node 20+
 
 Then run
 ```
 git clone https://github.com/ossrs/srs-sip
 cd srs-sip
-./bootstrap.sh
-mage
+./build.sh
 ```
 
-If you are on a Unix-like system, you can also run the following command.
+If on Windows
 ```
-make
+./build.bat
 ```
 
 Run the program:
 
 ```
-./bin/srs-sip -sip-port 5060 -media-addr 127.0.0.1:1985 -api-port 2020 -http-server-port 8888
+./bin/srs-sip
 ```
 
-- `sip-port` : the SIP port, this program listen on, for device register with gb28181
-- `media-addr` : the API address for SRS, typically on port 1985, used to send HTTP requests to "/gb/v1/publish"
-- `api-port`: The API server port, used to send HTTP requests, for example "/srs-sip/v1/channels"
-- `http-server-port`: The demo web server.
-
-Access http://localhost:8888 in web browser.
+Use docker
+```
+docker run -id -p 1985:1985 -p 2025:2025 -p 5060:5060 -p 8025:8025 -p 9000:9000 -p 5060:5060/udp -p 8000:8000/udp --name srs-sip --env CANDIDATE=your_ip xiaoniu008/srs-sip:alpha
+```
 
 ## Sequence
 

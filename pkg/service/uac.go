@@ -81,7 +81,7 @@ func (c *UAC) doRegister() error {
 		From:      "34020000001110000001",
 		To:        "34020000002000000001",
 		Transport: "UDP",
-		Via:       fmt.Sprintf("%s:%d", c.LocalIP, c.conf.SipPort),
+		Via:       fmt.Sprintf("%s:%d", c.LocalIP, c.conf.GB28181.Port),
 	})
 	tx, err := c.sipCli.TransactionRequest(c.ctx, r)
 	if err != nil {

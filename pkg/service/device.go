@@ -1,63 +1,11 @@
 package service
 
 import (
+	"fmt"
 	"sync"
 
-	"github.com/ossrs/srs-sip/pkg/utils"
+	"github.com/ossrs/srs-sip/pkg/models"
 )
-
-// <Item>
-// 	<DeviceID>34020000001320000002</DeviceID>
-// 	<Name>209</Name>
-// 	<Manufacturer>UNIVIEW</Manufacturer>
-// 	<Model>HIC6622-IR@X33-VF</Model>
-// 	<Owner>IPC-B2202.7.11.230222</Owner>
-// 	<CivilCode>CivilCode</CivilCode>
-// 	<Address>Address</Address>
-// 	<Parental>1</Parental>
-// 	<ParentID>75015310072008100002</ParentID>
-// 	<SafetyWay>0</SafetyWay>
-// 	<RegisterWay>1</RegisterWay>
-// 	<Secrecy>0</Secrecy>
-// 	<Status>ON</Status>
-// 	<Longitude>0.0000000</Longitude>
-// 	<Latitude>0.0000000</Latitude>
-// 	<Info>
-// 		<PTZType>1</PTZType>
-// 		<Resolution>6/4/2</Resolution>
-// 		<DownloadSpeed>0</DownloadSpeed>
-// 	</Info>
-// </Item>
-
-type ChannelInfo struct {
-	DeviceID     string        `json:"device_id"`
-	ParentID     string        `json:"parent_id"`
-	Name         string        `json:"name"`
-	Manufacturer string        `json:"manufacturer"`
-	Model        string        `json:"model"`
-	Owner        string        `json:"owner"`
-	CivilCode    string        `json:"civil_code"`
-	Address      string        `json:"address"`
-	Port         int           `json:"port"`
-	Parental     int           `json:"parental"`
-	SafetyWay    int           `json:"safety_way"`
-	RegisterWay  int           `json:"register_way"`
-	Secrecy      int           `json:"secrecy"`
-	IPAddress    string        `json:"ip_address"`
-	Status       ChannelStatus `json:"status"`
-	Longitude    float64       `json:"longitude"`
-	Latitude     float64       `json:"latitude"`
-	Info         struct {
-		PTZType       int    `json:"ptz_type"`
-		Resolution    string `json:"resolution"`
-		DownloadSpeed string `json:"download_speed"` // 1/2/4/8
-	} `json:"info"`
-
-	// custom fields
-	Ssrc string `json:"ssrc"`
-}
-
-type ChannelStatus string
 
 type DeviceInfo struct {
 	DeviceID    string   `json:"device_id"`
@@ -83,6 +31,13 @@ func GetDeviceManager() *deviceManager {
 }
 
 func (dm *deviceManager) AddDevice(id string, info *DeviceInfo) {
+	channel := models.ChannelInfo{
+		DeviceID: id,
+		ParentID: id,
+		Name:     id,
+		Status:   models.ChannelStatus("ON"),
+	}
+	info.ChannelMap.Store(channel.DeviceID, channel)
 	dm.devices.Store(id, info)
 }
 
@@ -107,41 +62,88 @@ func (dm *deviceManager) GetDevice(id string) (*DeviceInfo, bool) {
 	return v.(*DeviceInfo), true
 }
 
-func (dm *deviceManager) UpdateChannels(deviceID string, list ...ChannelInfo) {
+// ChannelParser defines interface for different manufacturer's channel parsing
+type ChannelParser interface {
+	ParseChannels(list ...models.ChannelInfo) ([]models.ChannelInfo, error)
+}
+
+// channelParserRegistry manages registration and lookup of manufacturer-specific parsers
+type channelParserRegistry struct {
+	parsers map[string]ChannelParser
+	mu      sync.RWMutex
+}
+
+var (
+	parserRegistry = &channelParserRegistry{
+		parsers: make(map[string]ChannelParser),
+	}
+)
+
+// RegisterParser registers a parser for a specific manufacturer
+func (r *channelParserRegistry) RegisterParser(manufacturer string, parser ChannelParser) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.parsers[manufacturer] = parser
+}
+
+// GetParser retrieves parser for a specific manufacturer
+func (r *channelParserRegistry) GetParser(manufacturer string) (ChannelParser, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	parser, ok := r.parsers[manufacturer]
+	return parser, ok
+}
+
+// UpdateChannels updates device channel information
+func (dm *deviceManager) UpdateChannels(deviceID string, list ...models.ChannelInfo) error {
 	device, ok := dm.GetDevice(deviceID)
 	if !ok {
-		return
+		return fmt.Errorf("device not found: %s", deviceID)
 	}
 
-	for _, channel := range list {
+	// clear ChannelMap
+	device.ChannelMap.Range(func(key, value interface{}) bool {
+		device.ChannelMap.Delete(key)
+		return true
+	})
+
+	parser, ok := parserRegistry.GetParser(list[0].Manufacturer)
+	if !ok {
+		return fmt.Errorf("no parser found for manufacturer: %s", list[0].Manufacturer)
+	}
+
+	channels, err := parser.ParseChannels(list...)
+	if err != nil {
+		return fmt.Errorf("failed to parse channels: %v", err)
+	}
+
+	for _, channel := range channels {
 		device.ChannelMap.Store(channel.DeviceID, channel)
 	}
 	dm.devices.Store(deviceID, device)
+	return nil
 }
 
-func (dm *deviceManager) ApiGetChannelByDeviceId(deviceID string) []ChannelInfo {
+func (dm *deviceManager) ApiGetChannelByDeviceId(deviceID string) []models.ChannelInfo {
 	device, ok := dm.GetDevice(deviceID)
 	if !ok {
 		return nil
 	}
 
-	channels := make([]ChannelInfo, 0)
+	channels := make([]models.ChannelInfo, 0)
 	device.ChannelMap.Range(func(key, value interface{}) bool {
-		channels = append(channels, value.(ChannelInfo))
+		channels = append(channels, value.(models.ChannelInfo))
 		return true
 	})
 	return channels
 }
 
-func (dm *deviceManager) GetAllVideoChannels() []ChannelInfo {
-	channels := make([]ChannelInfo, 0)
+func (dm *deviceManager) GetAllVideoChannels() []models.ChannelInfo {
+	channels := make([]models.ChannelInfo, 0)
 	dm.devices.Range(func(key, value interface{}) bool {
 		device := value.(*DeviceInfo)
 		device.ChannelMap.Range(func(key, value interface{}) bool {
-			if utils.IsVideoChannel(value.(ChannelInfo).DeviceID) {
-				channels = append(channels, value.(ChannelInfo))
-				return true
-			}
+			channels = append(channels, value.(models.ChannelInfo))
 			return true
 		})
 		return true
@@ -163,4 +165,38 @@ func (dm *deviceManager) GetDeviceInfoByChannel(channelID string) (*DeviceInfo, 
 		return true
 	})
 	return device, found
+}
+
+// Hikvision channel parser implementation
+type HikvisionParser struct{}
+
+func (p *HikvisionParser) ParseChannels(list ...models.ChannelInfo) ([]models.ChannelInfo, error) {
+	return list, nil
+}
+
+// Dahua channel parser implementation
+type DahuaParser struct{}
+
+func (p *DahuaParser) ParseChannels(list ...models.ChannelInfo) ([]models.ChannelInfo, error) {
+	return list, nil
+}
+
+// Uniview channel parser implementation
+type UniviewParser struct{}
+
+func (p *UniviewParser) ParseChannels(list ...models.ChannelInfo) ([]models.ChannelInfo, error) {
+	videoChannels := make([]models.ChannelInfo, 0)
+	for _, channel := range list {
+		// 只有Parental为1的通道，才是视频通道
+		if channel.Parental == 1 {
+			videoChannels = append(videoChannels, channel)
+		}
+	}
+	return videoChannels, nil
+}
+
+func init() {
+	parserRegistry.RegisterParser("Hikvision", &HikvisionParser{})
+	parserRegistry.RegisterParser("DAHUA", &DahuaParser{})
+	parserRegistry.RegisterParser("UNIVIEW", &UniviewParser{})
 }
