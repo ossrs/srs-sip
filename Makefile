@@ -1,6 +1,6 @@
 GOCMD=go
 GOBUILD=$(GOCMD) build
-BINARY_NAME=bin/srs-sip
+BINARY_NAME=objs/srs-sip
 MAIN_PATH=main/main.go
 VUE_DIR=html/NextGB
 
@@ -20,7 +20,7 @@ run:
 
 install:
 	$(GOBUILD) -o $(BINARY_NAME) $(MAIN_PATH)
-	mv $(BINARY_NAME) /usr/local/bin
+	mv $(BINARY_NAME) /usr/local/bin	
 
 vue-install:
 	cd $(VUE_DIR) && npm install

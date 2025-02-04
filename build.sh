@@ -1,6 +1,6 @@
 #!/bin/bash
 
-BINARY_NAME="bin/srs-sip"
+BINARY_NAME="objs/srs-sip"
 MAIN_PATH="main/main.go"
 VUE_DIR="html/NextGB"
 CONFIG_FILE="conf/config.yaml"
@@ -21,14 +21,14 @@ esac
 
 build() {
     echo "Building Go binary..."
-    mkdir -p bin
+    mkdir -p objs
     go build -o ${BINARY_NAME} ${MAIN_PATH}
     
     echo "Copying config file..."
     if [ -f "${CONFIG_FILE}" ]; then
-        mkdir -p "bin/$(dirname ${CONFIG_FILE})"
-        cp -a "${CONFIG_FILE}" "bin/$(dirname ${CONFIG_FILE})/"
-        echo "Config file copied to bin/$(dirname ${CONFIG_FILE})/"
+        mkdir -p "objs/$(dirname ${CONFIG_FILE})"
+        cp -a "${CONFIG_FILE}" "objs/$(dirname ${CONFIG_FILE})/"
+        echo "Config file copied to objs/$(dirname ${CONFIG_FILE})/"
     else
         echo "Warning: ${CONFIG_FILE} not found"
     fi
@@ -39,8 +39,8 @@ clean() {
     rm -rf ${BINARY_NAME}
     rm -rf ${VUE_DIR}/dist
     rm -rf ${VUE_DIR}/node_modules
-    rm -rf bin/html
-    rm -rf bin/${CONFIG_FILE}
+    rm -rf objs/html
+    rm -rf objs/${CONFIG_FILE}
 }
 
 run() {
@@ -107,16 +107,16 @@ vue_build() {
     popd > /dev/null
     echo "Vue build completed successfully"
 
-    echo "Copying dist files to bin directory..."
-    rm -rf bin/html
-    mkdir -p bin
+    echo "Copying dist files to objs directory..."
+    rm -rf objs/html
+    mkdir -p objs
     if [ ! -d "${VUE_DIR}/dist" ]; then
         echo "Error: Vue dist directory not found at ${VUE_DIR}/dist"
         return 1
     fi
-    cp -r "${VUE_DIR}/dist" "bin/html"
+    cp -r "${VUE_DIR}/dist" "objs/html"
     if [ $? -eq 0 ]; then
-        echo "Vue dist files successfully copied to bin/html"
+        echo "Vue dist files successfully copied to objs/html"
     else
         echo "Error copying files"
         return 1

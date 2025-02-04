@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"path"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -54,7 +55,10 @@ func main() {
 	methods := handlers.AllowedMethods([]string{"GET", "POST", "PUT", "DELETE", "OPTIONS"})
 	origins := handlers.AllowedOrigins([]string{"*"})
 
-	// 设置API路由 - 需要在静态文件路由之前设置
+	// 创建文件服务器
+	fs := http.FileServer(http.Dir(conf.Http.Dir))
+
+	// 先注册API路由
 	apiSvr, err := api.NewHttpApiServer(conf, sipSvr)
 	if err != nil {
 		logger.Ef("create http service failed. err is %v", err.Error())
@@ -62,38 +66,23 @@ func main() {
 	}
 	apiSvr.Start(router)
 
-	// 使用配置中指定的目录，如果不存在则尝试备选目录
-	targetDir := conf.Http.Dir
-	if _, err := os.Stat(path.Join(targetDir, "index.html")); err != nil {
-		backupDirs := []string{"./html", "../web/NextGB/dist"}
-		for _, dir := range backupDirs {
-			if _, err := os.Stat(path.Join(dir, "index.html")); err == nil {
-				targetDir = dir
-				break
-			}
+	// 添加静态文件处理 - 使用PathPrefix处理所有非API请求
+	router.PathPrefix("/").Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// 如果是API路径，直接返回404
+		if strings.HasPrefix(r.URL.Path, "/srs-sip/v1/") {
+			http.NotFound(w, r)
+			return
 		}
-	}
-	if targetDir == "" {
-		logger.Ef(ctx, "index.html not found")
-		return
-	}
-
-	// 创建文件服务器
-	fs := http.FileServer(http.Dir(targetDir))
-
-	// 添加静态文件处理 - 使用NotFoundHandler来处理未匹配的路由
-	router.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		logger.Tf(context.Background(), "Handling request: %s", r.URL.Path)
 
 		// 检查请求的文件是否存在
-		filePath := path.Join(targetDir, r.URL.Path)
+		filePath := path.Join(conf.Http.Dir, r.URL.Path)
 		_, err := os.Stat(filePath)
 		if os.IsNotExist(err) {
 			// 如果文件不存在，返回 index.html
 			r.URL.Path = "/"
 		}
 		fs.ServeHTTP(w, r)
-	})
+	}))
 
 	// 启动合并后的HTTP服务
 	go func() {
@@ -107,7 +96,7 @@ func main() {
 			IdleTimeout:       30 * time.Second,
 			ReadHeaderTimeout: 5 * time.Second,
 		}
-		logger.Tf(ctx, "http server listen on %s, home is %v", httpPort, targetDir)
+		logger.Tf(ctx, "http server listen on %s, home is %v", httpPort, conf.Http.Dir)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Ef(ctx, "listen on %s failed", httpPort)
 		}
