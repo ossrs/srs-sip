@@ -1,12 +1,10 @@
 <script setup lang="ts">
-import SystemForm from '@/views/setting/SystemForm.vue'
 </script>
 
 <template>
   <div class="settings-view">
-    <h1>系统设置</h1>
     <div class="settings-content">
-      <SystemForm />
+      <router-view></router-view>
     </div>
   </div>
 </template>
