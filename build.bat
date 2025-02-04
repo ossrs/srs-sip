@@ -1,7 +1,7 @@
 @echo off
 setlocal
 
-set BINARY_NAME=bin\srs-sip.exe
+set BINARY_NAME=objs\srs-sip.exe
 set MAIN_PATH=main\main.go
 set VUE_DIR=html\NextGB
 set CONFIG_FILE=conf\config.yaml
@@ -17,14 +17,14 @@ if "%1"=="all" goto all
 
 :build
 echo Building Go binary...
-if not exist "bin" mkdir bin
+if not exist "objs" mkdir objs
 go build -o %BINARY_NAME% %MAIN_PATH%
 
 echo Copying config file...
 if exist "%CONFIG_FILE%" (
-    mkdir "bin\%~dp0%CONFIG_FILE%" 2>nul
-    xcopy /s /i /y "%CONFIG_FILE%" "bin\%~dp0%CONFIG_FILE%\"
-    echo Config file copied to bin\%~dp0%CONFIG_FILE%
+    mkdir "objs\%~dp0%CONFIG_FILE%" 2>nul
+    xcopy /s /i /y "%CONFIG_FILE%" "objs\%~dp0%CONFIG_FILE%\"
+    echo Config file copied to objs\%~dp0%CONFIG_FILE%
 ) else (
     echo Warning: %CONFIG_FILE% not found
 )
@@ -35,8 +35,8 @@ echo Cleaning...
 if exist %BINARY_NAME% del /F /Q %BINARY_NAME%
 if exist %VUE_DIR%\dist rd /S /Q %VUE_DIR%\dist
 if exist %VUE_DIR%\node_modules rd /S /Q %VUE_DIR%\node_modules
-if exist bin\html rd /S /Q bin\html
-if exist bin\%CONFIG_FILE% del /F /Q bin\%CONFIG_FILE%
+if exist objs\html rd /S /Q objs\html
+if exist objs\%CONFIG_FILE% del /F /Q objs\%CONFIG_FILE%
 goto :eof
 
 :run
@@ -105,18 +105,18 @@ if errorlevel 1 (
 popd
 echo Vue build completed successfully
 
-echo Copying dist files to bin directory...
-if exist bin\html rd /S /Q bin\html
-if not exist bin mkdir bin
+echo Copying dist files to objs directory...
+if exist objs\html rd /S /Q objs\html
+if not exist objs mkdir objs
 if not exist "%VUE_DIR%\dist" (
     echo Error: Vue dist directory not found at %VUE_DIR%\dist
     goto :eof
 )
-robocopy "%VUE_DIR%\dist" "bin\html" /E /NFL /NDL /NJH /NJS /nc /ns /np
+robocopy "%VUE_DIR%\dist" "objs\html" /E /NFL /NDL /NJH /NJS /nc /ns /np
 if errorlevel 8 (
     echo Error copying files
 ) else (
-    echo Vue dist files successfully copied to bin\html
+    echo Vue dist files successfully copied to objs\html
 )
 goto :eof
 

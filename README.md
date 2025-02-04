@@ -21,12 +21,12 @@ If on Windows
 Run the program:
 
 ```
-./bin/srs-sip
+./objs/srs-sip
 ```
 
 Use docker
 ```
-docker run -id -p 1985:1985 -p 2025:2025 -p 5060:5060 -p 8025:8025 -p 9000:9000 -p 5060:5060/udp -p 8000:8000/udp --name srs-sip --env CANDIDATE=your_ip xiaoniu008/srs-sip:alpha
+docker run -id -p 1985:1985 -p 5060:5060 -p 8025:8025 -p 9000:9000 -p 5060:5060/udp -p 8000:8000/udp --name srs-sip --env CANDIDATE=your_ip ossrs/srs-sip:alpha
 ```
 
 ## Sequence
