@@ -22,9 +22,9 @@ go build -o %BINARY_NAME% %MAIN_PATH%
 
 echo Copying config file...
 if exist "%CONFIG_FILE%" (
-    mkdir "objs\%~dp0%CONFIG_FILE%" 2>nul
-    xcopy /s /i /y "%CONFIG_FILE%" "objs\%~dp0%CONFIG_FILE%\"
-    echo Config file copied to objs\%~dp0%CONFIG_FILE%
+    if not exist "objs\conf" mkdir "objs\conf"
+    xcopy /s /i /y "%CONFIG_FILE%" "objs\conf\"
+    echo Config file copied to objs\conf
 ) else (
     echo Warning: %CONFIG_FILE% not found
 )
