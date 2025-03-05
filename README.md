@@ -71,8 +71,27 @@ sequenceDiagram
 10. SRS-SIP通过设备停止推流
 
 
+## API 接口
 
+- 请求与响应数据格式为JSON
+- 所有响应的统一结构为：
+```json
+{
+  "code": 0,
+  "data": {}
+}
+```
 
+错误响应示例：
+```
+{
+  "code": 500,
+  "data": {
+    "msg": "error message"
+  }
+}
+```
 
+### 接口列表
 
-
+暂无，请参考demo。
