@@ -35,10 +35,10 @@ docker run -id -p 1985:1985 -p 5060:5060 -p 8025:8025 -p 9000:9000 -p 5060:5060/
 ```mermaid
 sequenceDiagram
     Device ->> SRS-SIP : 1. Register
-    SRS-SIP ->> Device : 2. 200 OK
+    SRS-SIP ->> Device : 2. 401
+    Device ->> SRS-SIP : 3. Register
+    SRS-SIP ->> Device : 4. 200 OK
 ```
-
-暂时没有实现鉴权功能，敬请期待。
 
 2. 播放视频流程
 Player、SRS-SIP、SRS Server和GB28181 Device的交互图如下：
@@ -69,3 +69,10 @@ sequenceDiagram
 8. Player停止播放
 9. SRS-SIP通知SRS停止收流
 10. SRS-SIP通过设备停止推流
+
+
+
+
+
+
+
