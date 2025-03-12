@@ -68,6 +68,28 @@ type ChannelInfo struct {
 
 type ChannelStatus string
 
+// BasicParam
+// <! -- 基本参数配置(可选)-->
+// <elementname="BasicParam"minOccurs="0">
+// <complexType>
+// <sequence>
+// <! -- 设备名称(可选)-->
+// <elementname="Name"type="string" minOccurs="0"/>
+// <! -- 注册过期时间(可选)-->
+// <elementname="Expiration"type="integer" minOccurs="0"/>
+// <! -- 心跳间隔时间(可选)-->
+// <elementname="HeartBeatInterval"type="integer" minOccurs="0"/>
+// <! -- 心跳超时次数(可选)-->
+// <elementname="HeartBeatCount"type="integer" minOccurs="0"/>
+// </sequence>
+// </complexType>
+type BasicParam struct {
+	Name              string `xml:"Name"`
+	Expiration        int    `xml:"Expiration"`
+	HeartBeatInterval int    `xml:"HeartBeatInterval"`
+	HeartBeatCount    int    `xml:"HeartBeatCount"`
+}
+
 type XmlMessageInfo struct {
 	XMLName      xml.Name
 	CmdType      string
@@ -79,5 +101,6 @@ type XmlMessageInfo struct {
 	Channel      string
 	DeviceList   []ChannelInfo `xml:"DeviceList>Item"`
 	RecordList   []*Record     `xml:"RecordList>Item"`
+	BasicParam   BasicParam    `xml:"BasicParam"`
 	SumNum       int
 }

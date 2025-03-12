@@ -73,15 +73,21 @@ func (s *UAS) onRegister(req *sip.Request, tx sip.ServerTransaction) {
 			s.respondRegister(req, http.StatusOK, "OK", tx)
 			logger.Tf(s.ctx, "%s Register success, source:%s, req: %s", id, req.Source(), req.String())
 
+			go s.ConfigDownload(id)
 			go s.Catalog(id)
 		} else {
-			if d.SourceAddr != req.Source() {
+			if d.SourceAddr != "" && d.SourceAddr != req.Source() {
 				logger.Ef(s.ctx, "Device %s[%s] already registered, %s is NOT allowed.", id, d.SourceAddr, req.Source())
-				// TODO: 国标没有明确定义重复ID注册的处理方式，这里暂时返回冲突
-				s.respondRegister(req, http.StatusConflict, "Conflict Device ID", tx)
+				// TODO: 如果ID重复，应采用虚拟ID
+				s.respondRegister(req, http.StatusBadRequest, "Conflict Device ID", tx)
 			} else {
-				// TODO: 刷新DM里面的设备信息
+				d.SourceAddr = req.Source()
+				d.NetworkType = req.Transport()
+				d.Online = true
+				DM.UpdateDevice(id, d)
 				s.respondRegister(req, http.StatusOK, "OK", tx)
+
+				logger.Tf(s.ctx, "%s Re-register success, source:%s, req: %s", id, req.Source(), req.String())
 			}
 		}
 	}
@@ -111,8 +117,10 @@ func (s *UAS) onMessage(req *sip.Request, tx sip.ServerTransaction) {
 	switch temp.CmdType {
 	case "Keepalive":
 		logger.T(s.ctx, "Keepalive")
-		if _, ok := DM.GetDevice(temp.DeviceID); !ok {
-			// unregister device
+		if d, ok := DM.GetDevice(temp.DeviceID); ok && d.Online {
+			// 更新设备心跳时间
+			DM.UpdateDeviceHeartbeat(temp.DeviceID)
+		} else {
 			tx.Respond(sip.NewResponseFromRequest(req, http.StatusBadRequest, "", nil))
 			return
 		}
@@ -121,6 +129,9 @@ func (s *UAS) onMessage(req *sip.Request, tx sip.ServerTransaction) {
 		logger.T(s.ctx, "Catalog")
 		DM.UpdateChannels(temp.DeviceID, temp.DeviceList...)
 		//go s.AutoInvite(temp.DeviceID, temp.DeviceList...)
+	case "ConfigDownload":
+		logger.T(s.ctx, "ConfigDownload")
+		DM.UpdateDeviceConfig(temp.DeviceID, &temp.BasicParam)
 	case "Alarm":
 		logger.T(s.ctx, "Alarm")
 	case "RecordInfo":

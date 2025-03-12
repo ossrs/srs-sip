@@ -49,4 +49,6 @@ func (s *Service) Start() error {
 func (s *Service) Stop() {
 	s.Uac.Stop()
 	s.Uas.Stop()
+	// 停止设备心跳检查器
+	GetDeviceManager().stopHeartbeatChecker()
 }
