@@ -108,6 +108,7 @@ Scale: %.1f
 	speedRequest.AppendHeader(sip.NewHeader("Content-Type", "Application/MANSRTSP"))
 	return speedRequest
 }
+
 func (s *UAS) AddSession(key string, status Session) {
 	logger.Tf(s.ctx, "AddSession: %s, %+v", key, status)
 	s.Streams.Store(key, status)
@@ -174,6 +175,37 @@ func (s *UAS) InitMediaServer(req models.InviteRequest) error {
 	}
 
 	return nil
+}
+
+func (s *UAS) handleSipTransaction(req *sip.Request) (*sip.Response, error) {
+	tx, err := s.sipCli.TransactionRequest(s.ctx, req)
+	if err != nil {
+		return nil, errors.Wrapf(err, "transaction request error")
+	}
+
+	res, err := s.waitAnswer(tx)
+	if err != nil {
+		return nil, errors.Wrapf(err, "wait answer error")
+	}
+	if res.StatusCode != 200 {
+		return nil, errors.Errorf("response error: %s", res.String())
+	}
+
+	return res, nil
+}
+
+func (s *UAS) isPublishing(key string) bool {
+	c, ok := s.GetSession(key)
+	if !ok {
+		return false
+	}
+
+	// Check if stream already exists
+	if p, err := s.media.GetStreamStatus(c.Ssrc); err != nil || !p {
+		return false
+	}
+
+	return true
 }
 
 func (s *UAS) Invite(req models.InviteRequest) (*Session, error) {
@@ -266,19 +298,6 @@ func (s *UAS) Invite(req models.InviteRequest) (*Session, error) {
 	s.AddSession(key, session)
 
 	return &session, nil
-}
-func (s *UAS) isPublishing(key string) bool {
-	c, ok := s.GetSession(key)
-	if !ok {
-		return false
-	}
-
-	// Check if stream already exists
-	if p, err := s.media.GetStreamStatus(c.Ssrc); err != nil || !p {
-		return false
-	}
-
-	return true
 }
 
 func (s *UAS) Bye(req models.ByeRequest) error {
@@ -513,19 +532,41 @@ func (s *UAS) QueryRecord(deviceID, channelID string, startTime, endTime int64) 
 	}
 }
 
-func (s *UAS) handleSipTransaction(req *sip.Request) (*sip.Response, error) {
-	tx, err := s.sipCli.TransactionRequest(s.ctx, req)
-	if err != nil {
-		return nil, errors.Wrapf(err, "transaction request error")
+// ConfigDownload
+// <?xml version="1.0"?>
+// <Control>
+// <CmdType>ConfigDownload</CmdType>
+// <SN>474</SN>
+// <DeviceID>33010602001310019325</DeviceID>
+// </Control>
+
+func (s *UAS) ConfigDownload(deviceID string) error {
+	var deviceConfigXML = `<?xml version="1.0"?>
+	<Control>
+	<CmdType>ConfigDownload</CmdType>
+	<SN>%d</SN>
+	<DeviceID>%s</DeviceID>
+	<ConfigType>BasicParam</ConfigType>
+	</Control>
+	`
+
+	d, ok := DM.GetDevice(deviceID)
+	if !ok {
+		return errors.Errorf("device %s not found", deviceID)
 	}
 
-	res, err := s.waitAnswer(tx)
+	body := fmt.Sprintf(deviceConfigXML, s.getSN(), deviceID)
+
+	req, err := stack.NewMessageRequest([]byte(body), stack.OutboundConfig{
+		Via:       d.SourceAddr,
+		To:        d.DeviceID,
+		From:      s.conf.GB28181.Serial,
+		Transport: d.NetworkType,
+	})
 	if err != nil {
-		return nil, errors.Wrapf(err, "wait answer error")
-	}
-	if res.StatusCode != 200 {
-		return nil, errors.Errorf("response error: %s", res.String())
+		return errors.Wrapf(err, "build device config request error")
 	}
 
-	return res, nil
+	_, err = s.handleSipTransaction(req)
+	return err
 }

@@ -1,21 +1,34 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"sync"
+	"time"
 
+	"github.com/ossrs/go-oryx-lib/logger"
 	"github.com/ossrs/srs-sip/pkg/models"
 )
 
 type DeviceInfo struct {
-	DeviceID    string   `json:"device_id"`
-	SourceAddr  string   `json:"source_addr"`
-	NetworkType string   `json:"network_type"`
-	ChannelMap  sync.Map `json:"-"`
+	DeviceID          string    `json:"device_id"`
+	SourceAddr        string    `json:"source_addr"`
+	NetworkType       string    `json:"network_type"`
+	ChannelMap        sync.Map  `json:"-"`
+	Online            bool      `json:"online"`
+	HeartBeatInterval int       `json:"heart_beat_interval"`
+	HeartBeatCount    int       `json:"heart_beat_count"`
+	lastHeartbeat     time.Time `json:"-"`
 }
 
+const (
+	DefaultHeartbeatInterval = 60 * time.Second // 心跳检查间隔时间
+)
+
 type deviceManager struct {
-	devices sync.Map
+	devices          sync.Map
+	heartbeatChecker *time.Ticker  // 心跳检查定时器
+	stopChan         chan struct{} // 停止信号通道
 }
 
 var instance *deviceManager
@@ -24,13 +37,97 @@ var once sync.Once
 func GetDeviceManager() *deviceManager {
 	once.Do(func() {
 		instance = &deviceManager{
-			devices: sync.Map{},
+			devices:  sync.Map{},
+			stopChan: make(chan struct{}),
 		}
+		// 启动心跳检查
+		instance.startHeartbeatChecker()
 	})
 	return instance
 }
 
+// 启动心跳检查器
+func (dm *deviceManager) startHeartbeatChecker() {
+	dm.heartbeatChecker = time.NewTicker(3 * time.Second) // 每3秒检查一次
+	go func() {
+		for {
+			select {
+			case <-dm.heartbeatChecker.C:
+				dm.checkHeartbeats()
+			case <-dm.stopChan:
+				dm.heartbeatChecker.Stop()
+				return
+			}
+		}
+	}()
+}
+
+// 停止心跳检查器
+func (dm *deviceManager) stopHeartbeatChecker() {
+	close(dm.stopChan)
+}
+
+// 检查所有设备的心跳状态
+func (dm *deviceManager) checkHeartbeats() {
+	now := time.Now()
+	dm.devices.Range(func(key, value interface{}) bool {
+		device := value.(*DeviceInfo)
+
+		if device.HeartBeatInterval == 0 {
+			device.HeartBeatInterval = int(DefaultHeartbeatInterval)
+		}
+
+		// 如果最后心跳时间超过超时时间，则将设备所有通道状态设置为离线
+		if now.Sub(device.lastHeartbeat) > time.Duration(device.HeartBeatInterval*device.HeartBeatCount)*time.Second {
+			isOffline := false
+			device.ChannelMap.Range(func(key, value interface{}) bool {
+				channel := value.(models.ChannelInfo)
+				if channel.Status != models.ChannelStatus("OFF") {
+					isOffline = true
+					channel.Status = models.ChannelStatus("OFF")
+					device.ChannelMap.Store(key, channel)
+				}
+				return true
+			})
+
+			if isOffline {
+				device.SourceAddr = ""
+				device.Online = false
+				dm.devices.Store(key, device)
+				logger.Wf(context.Background(), "Device %s is offline due to heartbeat timeout, HeartBeatInterval: %v", device.DeviceID, device.HeartBeatInterval)
+			}
+		}
+		return true
+	})
+}
+
+func (dm *deviceManager) UpdateDeviceHeartbeat(id string) {
+	if device, ok := dm.GetDevice(id); ok {
+		device.lastHeartbeat = time.Now()
+
+		// 检查是否需要将通道状态设置为在线
+		isUpdated := false
+		device.ChannelMap.Range(func(key, value interface{}) bool {
+			channel := value.(models.ChannelInfo)
+			if channel.Status != models.ChannelStatus("ON") {
+				isUpdated = true
+				channel.Status = models.ChannelStatus("ON")
+				device.ChannelMap.Store(key, channel)
+			}
+			return true
+		})
+
+		if isUpdated {
+			device.Online = true
+			dm.devices.Store(id, device)
+		}
+	}
+}
+
 func (dm *deviceManager) AddDevice(id string, info *DeviceInfo) {
+	// 设置初始心跳时间
+	info.lastHeartbeat = time.Now()
+
 	channel := models.ChannelInfo{
 		DeviceID: id,
 		ParentID: id,
@@ -60,6 +157,31 @@ func (dm *deviceManager) GetDevice(id string) (*DeviceInfo, bool) {
 		return nil, false
 	}
 	return v.(*DeviceInfo), true
+}
+
+// UpdateDevice 更新设备信息
+func (dm *deviceManager) UpdateDevice(id string, device *DeviceInfo) {
+	dm.devices.Store(id, device)
+}
+
+// UpdateDeviceConfig 更新设备配置信息
+func (dm *deviceManager) UpdateDeviceConfig(deviceID string, basicParam *models.BasicParam) {
+	device, ok := dm.GetDevice(deviceID)
+	if !ok {
+		return
+	}
+
+	if basicParam != nil {
+		// 更新设备心跳相关配置
+		if basicParam.HeartBeatInterval > 0 {
+			device.HeartBeatInterval = basicParam.HeartBeatInterval
+		}
+		if basicParam.HeartBeatCount > 0 {
+			device.HeartBeatCount = basicParam.HeartBeatCount
+		}
+
+		dm.devices.Store(deviceID, device)
+	}
 }
 
 // ChannelParser defines interface for different manufacturer's channel parsing

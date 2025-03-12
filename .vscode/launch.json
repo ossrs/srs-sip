@@ -5,14 +5,28 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Launch Binary",
+            "name": "Launch Binary (Windows)",
+            "type": "go",
+            "request": "launch",
+            "mode": "exec",
+            "program": "${workspaceFolder}/objs/srs-sip.exe",
+            "cwd": "${workspaceFolder}/objs",
+            "env": {},
+            "args": [],
+            "preLaunchTask": "build-windows",
+            "windows": {}
+        },
+        {
+            "name": "Launch Binary (Linux)",
             "type": "go",
             "request": "launch",
             "mode": "exec",
             "program": "${workspaceFolder}/objs/srs-sip",
             "cwd": "${workspaceFolder}/objs",
             "env": {},
-            "args": []
+            "args": [],
+            "preLaunchTask": "build-linux",
+            "linux": {}
         }
     ]
 }
