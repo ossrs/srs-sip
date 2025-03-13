@@ -69,6 +69,7 @@ func (s *UAS) onRegister(req *sip.Request, tx sip.ServerTransaction) {
 				DeviceID:    id,
 				SourceAddr:  req.Source(),
 				NetworkType: req.Transport(),
+				Online:      true,
 			})
 			s.respondRegister(req, http.StatusOK, "OK", tx)
 			logger.Tf(s.ctx, "%s Register success, source:%s, req: %s", id, req.Source(), req.String())
