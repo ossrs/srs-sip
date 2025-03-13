@@ -23,6 +23,7 @@ type DeviceInfo struct {
 
 const (
 	DefaultHeartbeatInterval = 60 * time.Second // 心跳检查间隔时间
+	DefaultHeartbeatCount    = 3                // 心跳检查次数
 )
 
 type deviceManager struct {
@@ -75,6 +76,9 @@ func (dm *deviceManager) checkHeartbeats() {
 
 		if device.HeartBeatInterval == 0 {
 			device.HeartBeatInterval = int(DefaultHeartbeatInterval)
+		}
+		if device.HeartBeatCount == 0 {
+			device.HeartBeatCount = DefaultHeartbeatCount
 		}
 
 		// 如果最后心跳时间超过超时时间，则将设备所有通道状态设置为离线
