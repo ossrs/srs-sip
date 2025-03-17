@@ -131,6 +131,7 @@ func (dm *deviceManager) UpdateDeviceHeartbeat(id string) {
 func (dm *deviceManager) AddDevice(id string, info *DeviceInfo) {
 	// 设置初始心跳时间
 	info.lastHeartbeat = time.Now()
+	info.Online = true
 
 	channel := models.ChannelInfo{
 		DeviceID: id,
@@ -165,6 +166,8 @@ func (dm *deviceManager) GetDevice(id string) (*DeviceInfo, bool) {
 
 // UpdateDevice 更新设备信息
 func (dm *deviceManager) UpdateDevice(id string, device *DeviceInfo) {
+	device.lastHeartbeat = time.Now()
+	device.Online = true
 	dm.devices.Store(id, device)
 }
 
