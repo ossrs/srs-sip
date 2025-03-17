@@ -3,6 +3,7 @@ package service
 import (
 	"bytes"
 	"encoding/xml"
+	"net"
 	"net/http"
 	"strconv"
 
@@ -14,6 +15,18 @@ import (
 )
 
 const GB28181_ID_LENGTH = 20
+
+func (s *UAS) isSameIP(addr1, addr2 string) bool {
+	ip1, _, err1 := net.SplitHostPort(addr1)
+	ip2, _, err2 := net.SplitHostPort(addr2)
+
+	// 如果解析出错，回退到完整字符串比较
+	if err1 != nil || err2 != nil {
+		return addr1 == addr2
+	}
+
+	return ip1 == ip2
+}
 
 func (s *UAS) onRegister(req *sip.Request, tx sip.ServerTransaction) {
 	id := req.From().Address.User
@@ -69,7 +82,6 @@ func (s *UAS) onRegister(req *sip.Request, tx sip.ServerTransaction) {
 				DeviceID:    id,
 				SourceAddr:  req.Source(),
 				NetworkType: req.Transport(),
-				Online:      true,
 			})
 			s.respondRegister(req, http.StatusOK, "OK", tx)
 			logger.Tf(s.ctx, "%s Register success, source:%s, req: %s", id, req.Source(), req.String())
@@ -77,14 +89,13 @@ func (s *UAS) onRegister(req *sip.Request, tx sip.ServerTransaction) {
 			go s.ConfigDownload(id)
 			go s.Catalog(id)
 		} else {
-			if d.SourceAddr != "" && d.SourceAddr != req.Source() {
-				logger.Ef(s.ctx, "Device %s[%s] already registered, %s is NOT allowed.", id, d.SourceAddr, req.Source())
+			if d.SourceAddr != "" && !s.isSameIP(d.SourceAddr, req.Source()) {
+				logger.Ef(s.ctx, "Device %s[%s] already registered, please change another ID.", id, d.SourceAddr, req.Source())
 				// TODO: 如果ID重复，应采用虚拟ID
 				s.respondRegister(req, http.StatusBadRequest, "Conflict Device ID", tx)
 			} else {
 				d.SourceAddr = req.Source()
 				d.NetworkType = req.Transport()
-				d.Online = true
 				DM.UpdateDevice(id, d)
 				s.respondRegister(req, http.StatusOK, "OK", tx)
 
