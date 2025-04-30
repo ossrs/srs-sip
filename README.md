@@ -21,13 +21,19 @@ If on Windows
 Run the program:
 
 ```
-./objs/srs-sip
+./objs/srs-sip -c conf/config.yaml
 ```
 
 Use docker
 ```
 docker run -id -p 1985:1985 -p 5060:5060 -p 8025:8025 -p 9000:9000 -p 5060:5060/udp -p 8000:8000/udp --name srs-sip --env CANDIDATE=your_ip ossrs/srs-sip:alpha
 ```
+
+ - 1985/TCP: SRS监听，SRS-SIP通过此端口调用SRS的API
+ - 9000/TCP: SRS监听，用于接收国标推送的媒体流
+ - 8000/UDP：SRS监听，用于RTC播放
+ - 5060/TCP：SRS-SIP监听，用于国标注册
+ - 8025/TCP：SRS-SIP监听，用于前端页面
 
 ## Sequence
 
