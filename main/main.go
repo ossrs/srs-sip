@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"net/http"
 	"os"
 	"os/signal"
@@ -28,9 +29,18 @@ func WaitTerminationSignal(cancel context.CancelFunc) {
 }
 
 func main() {
+	// 定义配置文件路径参数
+	configPath := flag.String("c", "", "配置文件路径")
+	flag.Parse()
+
+	if *configPath == "" {
+		logger.E(nil, "错误: 通过 -c 参数指定配置文件路径，比如：./srs-sip -c conf/config.yaml")
+		return
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 
-	conf, err := config.LoadConfig("conf/config.yaml")
+	conf, err := config.LoadConfig(*configPath)
 	if err != nil {
 		logger.E(nil, "load config failed: %v", err)
 		return
