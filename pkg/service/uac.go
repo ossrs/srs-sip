@@ -3,11 +3,11 @@ package service
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/emiago/sipgo"
 	"github.com/emiago/sipgo/sip"
 	"github.com/ossrs/go-oryx-lib/errors"
-	"github.com/ossrs/go-oryx-lib/logger"
 	"github.com/ossrs/srs-sip/pkg/config"
 	"github.com/ossrs/srs-sip/pkg/service/stack"
 )
@@ -26,7 +26,7 @@ type UAC struct {
 func NewUac() *UAC {
 	ip, err := config.GetLocalIP()
 	if err != nil {
-		logger.E("get local ip failed")
+		slog.Error("get local ip failed", "error", err)
 		return nil
 	}
 
@@ -89,7 +89,7 @@ func (c *UAC) doRegister() error {
 	}
 
 	rs, _ := c.getResponse(tx)
-	logger.Tf(c.ctx, "register response: %s", rs.String())
+	slog.Info("register response", "response", rs.String())
 	return nil
 }
 
@@ -101,15 +101,15 @@ func (c *UAC) OnRequest(req *sip.Request, tx sip.ServerTransaction) {
 }
 
 func (c *UAC) onInvite(req *sip.Request, tx sip.ServerTransaction) {
-	logger.T(c.ctx, "onInvite")
+	slog.Debug("onInvite")
 }
 
 func (c *UAC) onBye(req *sip.Request, tx sip.ServerTransaction) {
-	logger.T(c.ctx, "onBye")
+	slog.Debug("onBye")
 }
 
 func (c *UAC) onMessage(req *sip.Request, tx sip.ServerTransaction) {
-	logger.Tf(c.ctx, "onMessage %s", req.String())
+	slog.Debug("onMessage", "request", req.String())
 }
 
 func (c *UAC) getResponse(tx sip.ClientTransaction) (*sip.Response, error) {

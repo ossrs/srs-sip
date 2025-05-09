@@ -5,11 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/ossrs/go-oryx-lib/errors"
-	"github.com/ossrs/go-oryx-lib/logger"
 )
 
 type IMedia interface {
@@ -30,7 +30,7 @@ func apiRequest(ctx context.Context, r string, req interface{}, res interface{})
 			return errors.Wrapf(err, "Marshal body %v", req)
 		}
 	}
-	logger.Tf(ctx, "Request url api=%v with %v bytes", r, buf.Len())
+	slog.Debug("API request", "url", r, "size", buf.Len())
 
 	method := "POST"
 	if req == nil {
@@ -56,7 +56,7 @@ func apiRequest(ctx context.Context, r string, req interface{}, res interface{})
 	if err != nil {
 		return errors.Wrapf(err, "Read response for %v", buf.String())
 	}
-	logger.Tf(ctx, "Response from %v is %v bytes", r, len(b2))
+	slog.Debug("API response", "url", r, "size", len(b2))
 
 	errorCode := struct {
 		Code int `json:"code"`
@@ -71,7 +71,7 @@ func apiRequest(ctx context.Context, r string, req interface{}, res interface{})
 	if err := json.Unmarshal(b2, res); err != nil {
 		return errors.Wrapf(err, "Unmarshal %v", string(b2))
 	}
-	logger.Tf(ctx, "Parse response to code=%v ok, %v", errorCode.Code, res)
+	slog.Debug("Parse API response", "code", errorCode.Code, "response", res)
 
 	return nil
 }

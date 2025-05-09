@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"os"
 	"sync"
 
 	"github.com/emiago/sipgo"
-	"github.com/ossrs/go-oryx-lib/logger"
 	"github.com/ossrs/srs-sip/pkg/config"
 	"github.com/ossrs/srs-sip/pkg/db"
 	"github.com/ossrs/srs-sip/pkg/media"
@@ -100,7 +100,7 @@ func (s *UAS) startUDP() error {
 		return fmt.Errorf("cannot listen on the UDP signaling port %d: %w", s.conf.GB28181.Port, err)
 	}
 	s.sipConnUDP = lis
-	logger.Tf(s.ctx, "sip signaling listening on UDP %s:%d", lis.LocalAddr().String(), s.conf.GB28181.Port)
+	slog.Info("sip signaling listening on UDP", "address", lis.LocalAddr().String(), "port", s.conf.GB28181.Port)
 
 	go func() {
 		if err := s.sipSvr.ServeUDP(lis); err != nil {
@@ -119,7 +119,7 @@ func (s *UAS) startTCP() error {
 		return fmt.Errorf("cannot listen on the TCP signaling port %d: %w", s.conf.GB28181.Port, err)
 	}
 	s.sipConnTCP = lis
-	logger.Tf(s.ctx, "sip signaling listening on TCP %s:%d", lis.Addr().String(), s.conf.GB28181.Port)
+	slog.Info("sip signaling listening on TCP", "address", lis.Addr().String(), "port", s.conf.GB28181.Port)
 
 	go func() {
 		if err := s.sipSvr.ServeTCP(lis); err != nil && !errors.Is(err, net.ErrClosed) {

@@ -12,7 +12,7 @@
             "program": "${workspaceFolder}/objs/srs-sip.exe",
             "cwd": "${workspaceFolder}/objs",
             "env": {},
-            "args": [],
+            "args": ["-c", "${workspaceFolder}/conf/config.yaml"],
             "preLaunchTask": "build-windows",
             "windows": {}
         },
@@ -24,7 +24,7 @@
             "program": "${workspaceFolder}/objs/srs-sip",
             "cwd": "${workspaceFolder}/objs",
             "env": {},
-            "args": [],
+            "args": ["-c", "${workspaceFolder}/conf/config.yaml"],
             "preLaunchTask": "build-linux",
             "linux": {}
         }

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -14,10 +15,10 @@ import (
 
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
-	"github.com/ossrs/go-oryx-lib/logger"
 	"github.com/ossrs/srs-sip/pkg/api"
 	"github.com/ossrs/srs-sip/pkg/config"
 	"github.com/ossrs/srs-sip/pkg/service"
+	"github.com/ossrs/srs-sip/pkg/utils"
 )
 
 func WaitTerminationSignal(cancel context.CancelFunc) {
@@ -29,12 +30,11 @@ func WaitTerminationSignal(cancel context.CancelFunc) {
 }
 
 func main() {
-	// 定义配置文件路径参数
 	configPath := flag.String("c", "", "配置文件路径")
 	flag.Parse()
 
 	if *configPath == "" {
-		logger.E(nil, "错误: 通过 -c 参数指定配置文件路径，比如：./srs-sip -c conf/config.yaml")
+		slog.Error("error: specify the config file path, like: ./srs-sip -c conf/config.yaml")
 		return
 	}
 
@@ -42,18 +42,28 @@ func main() {
 
 	conf, err := config.LoadConfig(*configPath)
 	if err != nil {
-		logger.E(nil, "load config failed: %v", err)
+		slog.Error("load config failed", "error", err)
 		return
 	}
 
+	if err := utils.SetupLogger(conf.Common.LogLevel, conf.Common.LogFile); err != nil {
+		slog.Error("setup logger failed", "error", err)
+		return
+	}
+
+	slog.Info("*****************************************************")
+	slog.Info("          ☆☆☆ 欢迎使用 SRS-SIP 服务 ☆☆☆")
+	slog.Info("*****************************************************")
+	slog.Info("srs-sip service starting", "config", *configPath, "log_file", conf.Common.LogFile)
+
 	sipSvr, err := service.NewService(ctx, conf)
 	if err != nil {
-		logger.Ef("create service failed. err is %v", err.Error())
+		slog.Error("create service failed", "error", err.Error())
 		return
 	}
 
 	if err := sipSvr.Start(); err != nil {
-		logger.Ef("start sip service failed. err is %v", err.Error())
+		slog.Error("start sip service failed", "error", err.Error())
 		return
 	}
 
@@ -71,7 +81,7 @@ func main() {
 	// 先注册API路由
 	apiSvr, err := api.NewHttpApiServer(conf, sipSvr)
 	if err != nil {
-		logger.Ef("create http service failed. err is %v", err.Error())
+		slog.Error("create http service failed", "error", err.Error())
 		return
 	}
 	apiSvr.Start(router)
@@ -80,6 +90,7 @@ func main() {
 	router.PathPrefix("/").Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// 如果是API路径，直接返回404
 		if strings.HasPrefix(r.URL.Path, "/srs-sip/v1/") {
+			slog.Info("api path not found", "path", r.URL.Path)
 			http.NotFound(w, r)
 			return
 		}
@@ -89,6 +100,7 @@ func main() {
 		_, err := os.Stat(filePath)
 		if os.IsNotExist(err) {
 			// 如果文件不存在，返回 index.html
+			slog.Info("file not found, redirect to index", "path", r.URL.Path)
 			r.URL.Path = "/"
 		}
 		fs.ServeHTTP(w, r)
@@ -106,13 +118,14 @@ func main() {
 			IdleTimeout:       30 * time.Second,
 			ReadHeaderTimeout: 5 * time.Second,
 		}
-		logger.Tf(ctx, "http server listen on %s, home is %v", httpPort, conf.Http.Dir)
+		slog.Info("http server listen", "port", httpPort, "home", conf.Http.Dir)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logger.Ef(ctx, "listen on %s failed", httpPort)
+			slog.Error("listen failed", "port", httpPort, "error", err)
 		}
 	}()
 
 	WaitTerminationSignal(cancel)
 
 	sipSvr.Stop()
+	slog.Info("srs-sip service stopped")
 }
