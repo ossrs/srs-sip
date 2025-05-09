@@ -128,7 +128,7 @@ func (s *UAS) onMessage(req *sip.Request, tx sip.ServerTransaction) {
 	var body string
 	switch temp.CmdType {
 	case "Keepalive":
-		slog.Debug("Keepalive")
+		slog.Info("Keepalive")
 		if d, ok := DM.GetDevice(temp.DeviceID); ok && d.Online {
 			// 更新设备心跳时间
 			DM.UpdateDeviceHeartbeat(temp.DeviceID)
@@ -138,16 +138,16 @@ func (s *UAS) onMessage(req *sip.Request, tx sip.ServerTransaction) {
 		}
 	case "SensorCatalog": // 兼容宇视，非国标
 	case "Catalog":
-		slog.Debug("Catalog")
+		slog.Info("Catalog")
 		DM.UpdateChannels(temp.DeviceID, temp.DeviceList...)
 		//go s.AutoInvite(temp.DeviceID, temp.DeviceList...)
 	case "ConfigDownload":
-		slog.Debug("ConfigDownload")
+		slog.Info("ConfigDownload")
 		DM.UpdateDeviceConfig(temp.DeviceID, &temp.BasicParam)
 	case "Alarm":
-		slog.Debug("Alarm")
+		slog.Info("Alarm")
 	case "RecordInfo":
-		slog.Debug("RecordInfo")
+		slog.Info("RecordInfo")
 		// 从 recordQueryResults 中获取对应通道的结果通道
 		if ch, ok := s.recordQueryResults.Load(temp.DeviceID); ok {
 			// 发送查询结果
@@ -164,6 +164,6 @@ func (s *UAS) onMessage(req *sip.Request, tx sip.ServerTransaction) {
 }
 
 func (s *UAS) onNotify(req *sip.Request, tx sip.ServerTransaction) {
-	slog.Debug("Received NOTIFY request")
+	slog.Info("Received NOTIFY request")
 	tx.Respond(sip.NewResponseFromRequest(req, http.StatusOK, "OK", nil))
 }
