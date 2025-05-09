@@ -2,12 +2,12 @@ package service
 
 import (
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
 	"github.com/emiago/sipgo/sip"
 	"github.com/ossrs/go-oryx-lib/errors"
-	"github.com/ossrs/go-oryx-lib/logger"
 	"github.com/ossrs/srs-sip/pkg/media"
 	"github.com/ossrs/srs-sip/pkg/models"
 	"github.com/ossrs/srs-sip/pkg/service/stack"
@@ -110,7 +110,7 @@ Scale: %.1f
 }
 
 func (s *UAS) AddSession(key string, status Session) {
-	logger.Tf(s.ctx, "AddSession: %s, %+v", key, status)
+	slog.Info("AddSession", "key", key, "status", status)
 	s.Streams.Store(key, status)
 }
 
@@ -314,7 +314,7 @@ func (s *UAS) Bye(req models.ByeRequest) error {
 
 	defer func() {
 		if err := s.media.Unpublish(session.Ssrc); err != nil {
-			logger.Ef(s.ctx, "unpublish stream error: %s", err)
+			slog.Error("unpublish stream error", "error", err, "stream_id", session.Ssrc)
 		}
 		s.RemoveSession(key)
 	}()
@@ -523,7 +523,11 @@ func (s *UAS) QueryRecord(deviceID, channelID string, startTime, endTime int64) 
 			return nil, errors.Errorf("context done")
 		case records := <-resultChan:
 			allRecords = append(allRecords, records.RecordList...)
-			logger.Tf(s.ctx, "[channel %s] 应收总数 %d, 实收总数 %d, 本次收到 %d", channelID, records.SumNum, len(allRecords), len(records.RecordList))
+			slog.Info("Record query result",
+				"channel", channelID,
+				"expected_count", records.SumNum,
+				"actual_count", len(allRecords),
+				"batch_count", len(records.RecordList))
 
 			if len(allRecords) == records.SumNum {
 				return allRecords, nil

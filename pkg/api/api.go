@@ -1,11 +1,10 @@
 package api
 
 import (
-	"context"
+	"log/slog"
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/ossrs/go-oryx-lib/logger"
 	"github.com/ossrs/srs-sip/pkg/config"
 	"github.com/ossrs/srs-sip/pkg/service"
 )
@@ -29,7 +28,7 @@ func (h *HttpApiServer) Start(router *mux.Router) {
 	// 创建一个子路由，所有API都以/srs-sip/v1为前缀
 	apiRouter := router.PathPrefix("/srs-sip/v1").Subrouter()
 
-	logger.Tf(context.Background(), "Registering API routes under /srs-sip/v1")
+	slog.Info("Registering API routes under /srs-sip/v1")
 	h.RegisterRoutes(apiRouter)
 
 	// 打印所有注册的路由，包含更详细的信息
@@ -38,8 +37,11 @@ func (h *HttpApiServer) Start(router *mux.Router) {
 		pathRegexp, _ := route.GetPathRegexp()
 		methods, _ := route.GetMethods()
 		queries, _ := route.GetQueriesTemplates()
-		logger.Tf(context.Background(), "Route Details: Path=%v, Regexp=%v, Methods=%v, Queries=%v",
-			pathTemplate, pathRegexp, methods, queries)
+		slog.Debug("Route Details",
+			"path", pathTemplate,
+			"regexp", pathRegexp,
+			"methods", methods,
+			"queries", queries)
 		return nil
 	})
 }

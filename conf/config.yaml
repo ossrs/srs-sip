@@ -1,6 +1,7 @@
 # 通用配置
 common:
   log-level: "info"
+  log-file: "logs/srs-sip.log"
 
 # GB28181配置
 gb28181:

@@ -1,12 +1,11 @@
 package service
 
 import (
-	"context"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
-	"github.com/ossrs/go-oryx-lib/logger"
 	"github.com/ossrs/srs-sip/pkg/models"
 )
 
@@ -98,7 +97,10 @@ func (dm *deviceManager) checkHeartbeats() {
 				device.SourceAddr = ""
 				device.Online = false
 				dm.devices.Store(key, device)
-				logger.Wf(context.Background(), "Device %s is offline due to heartbeat timeout, HeartBeatInterval: %v", device.DeviceID, device.HeartBeatInterval)
+				slog.Warn("Device is offline due to heartbeat timeout",
+					"device_id", device.DeviceID,
+					"heartbeat_interval", device.HeartBeatInterval,
+					"heartbeat_count", device.HeartBeatCount)
 			}
 		}
 		return true

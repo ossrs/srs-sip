@@ -3,12 +3,12 @@ package service
 import (
 	"bytes"
 	"encoding/xml"
+	"log/slog"
 	"net"
 	"net/http"
 	"strconv"
 
 	"github.com/emiago/sipgo/sip"
-	"github.com/ossrs/go-oryx-lib/logger"
 	"github.com/ossrs/srs-sip/pkg/models"
 	"github.com/ossrs/srs-sip/pkg/service/stack"
 	"golang.org/x/net/html/charset"
@@ -31,7 +31,7 @@ func (s *UAS) isSameIP(addr1, addr2 string) bool {
 func (s *UAS) onRegister(req *sip.Request, tx sip.ServerTransaction) {
 	id := req.From().Address.User
 	if len(id) != GB28181_ID_LENGTH {
-		logger.E(s.ctx, "invalid device ID")
+		slog.Error("invalid device ID")
 		return
 	}
 
@@ -50,7 +50,7 @@ func (s *UAS) onRegister(req *sip.Request, tx sip.ServerTransaction) {
 		// Validate Authorization
 		authInfo := ParseAuthorization(authHeader[0].Value())
 		if !ValidateAuth(authInfo, s.conf.GB28181.Auth.Password) {
-			logger.Ef(s.ctx, "%s auth failed, source: %s", id, req.Source())
+			slog.Error("auth failed", "device_id", id, "source", req.Source())
 			s.respondRegister(req, http.StatusForbidden, "Auth Failed", tx)
 			return
 		}
@@ -61,20 +61,20 @@ func (s *UAS) onRegister(req *sip.Request, tx sip.ServerTransaction) {
 		exp := exps[0]
 		expSec, err := strconv.ParseInt(exp.Value(), 10, 32)
 		if err != nil {
-			logger.Ef(s.ctx, "parse expires header error: %s", err.Error())
+			slog.Error("parse expires header error", "error", err.Error())
 			return
 		}
 		if expSec == 0 {
 			isUnregister = true
 		}
 	} else {
-		logger.E(s.ctx, "empty expires header")
+		slog.Error("empty expires header")
 		return
 	}
 
 	if isUnregister {
 		DM.RemoveDevice(id)
-		logger.Wf(s.ctx, "Device %s unregistered", id)
+		slog.Warn("Device unregistered", "device_id", id)
 		return
 	} else {
 		if d, ok := DM.GetDevice(id); !ok {
@@ -84,13 +84,13 @@ func (s *UAS) onRegister(req *sip.Request, tx sip.ServerTransaction) {
 				NetworkType: req.Transport(),
 			})
 			s.respondRegister(req, http.StatusOK, "OK", tx)
-			logger.Tf(s.ctx, "%s Register success, source:%s, req: %s", id, req.Source(), req.String())
+			slog.Info("Register success", "device_id", id, "source", req.Source(), "request", req.String())
 
 			go s.ConfigDownload(id)
 			go s.Catalog(id)
 		} else {
 			if d.SourceAddr != "" && !s.isSameIP(d.SourceAddr, req.Source()) {
-				logger.Ef(s.ctx, "Device %s[%s] already registered, please change another ID.", id, d.SourceAddr, req.Source())
+				slog.Error("Device already registered", "device_id", id, "old_source", d.SourceAddr, "new_source", req.Source())
 				// TODO: 如果ID重复，应采用虚拟ID
 				s.respondRegister(req, http.StatusBadRequest, "Conflict Device ID", tx)
 			} else {
@@ -99,7 +99,7 @@ func (s *UAS) onRegister(req *sip.Request, tx sip.ServerTransaction) {
 				DM.UpdateDevice(id, d)
 				s.respondRegister(req, http.StatusOK, "OK", tx)
 
-				logger.Tf(s.ctx, "%s Re-register success, source:%s, req: %s", id, req.Source(), req.String())
+				slog.Info("Re-register success", "device_id", id, "source", req.Source(), "request", req.String())
 			}
 		}
 	}
@@ -114,21 +114,21 @@ func (s *UAS) respondRegister(req *sip.Request, code sip.StatusCode, reason stri
 func (s *UAS) onMessage(req *sip.Request, tx sip.ServerTransaction) {
 	id := req.From().Address.User
 	if len(id) != 20 {
-		logger.Ef(s.ctx, "invalid device ID %s", req.String())
+		slog.Error("invalid device ID", "request", req.String())
 	}
 
-	//logger.Tf(s.ctx, "Received MESSAGE: %s", req.String())
+	slog.Debug("Received MESSAGE", "request", req.String())
 
 	temp := &models.XmlMessageInfo{}
 	decoder := xml.NewDecoder(bytes.NewReader([]byte(req.Body())))
 	decoder.CharsetReader = charset.NewReaderLabel
 	if err := decoder.Decode(temp); err != nil {
-		logger.Ef(s.ctx, "decode message error: %s\n message:%s", err.Error(), req.Body())
+		slog.Error("decode message error", "error", err.Error(), "message", req.Body())
 	}
 	var body string
 	switch temp.CmdType {
 	case "Keepalive":
-		logger.T(s.ctx, "Keepalive")
+		slog.Debug("Keepalive")
 		if d, ok := DM.GetDevice(temp.DeviceID); ok && d.Online {
 			// 更新设备心跳时间
 			DM.UpdateDeviceHeartbeat(temp.DeviceID)
@@ -138,16 +138,16 @@ func (s *UAS) onMessage(req *sip.Request, tx sip.ServerTransaction) {
 		}
 	case "SensorCatalog": // 兼容宇视，非国标
 	case "Catalog":
-		logger.T(s.ctx, "Catalog")
+		slog.Debug("Catalog")
 		DM.UpdateChannels(temp.DeviceID, temp.DeviceList...)
 		//go s.AutoInvite(temp.DeviceID, temp.DeviceList...)
 	case "ConfigDownload":
-		logger.T(s.ctx, "ConfigDownload")
+		slog.Debug("ConfigDownload")
 		DM.UpdateDeviceConfig(temp.DeviceID, &temp.BasicParam)
 	case "Alarm":
-		logger.T(s.ctx, "Alarm")
+		slog.Debug("Alarm")
 	case "RecordInfo":
-		logger.T(s.ctx, "RecordInfo")
+		slog.Debug("RecordInfo")
 		// 从 recordQueryResults 中获取对应通道的结果通道
 		if ch, ok := s.recordQueryResults.Load(temp.DeviceID); ok {
 			// 发送查询结果
@@ -155,7 +155,7 @@ func (s *UAS) onMessage(req *sip.Request, tx sip.ServerTransaction) {
 			resultChan <- temp
 		}
 	default:
-		logger.Wf(s.ctx, "Not supported CmdType: %s", temp.CmdType)
+		slog.Warn("Not supported CmdType", "cmd_type", temp.CmdType)
 		response := sip.NewResponseFromRequest(req, http.StatusBadRequest, "", nil)
 		tx.Respond(response)
 		return
@@ -164,6 +164,6 @@ func (s *UAS) onMessage(req *sip.Request, tx sip.ServerTransaction) {
 }
 
 func (s *UAS) onNotify(req *sip.Request, tx sip.ServerTransaction) {
-	logger.T(s.ctx, "Received NOTIFY request")
+	slog.Debug("Received NOTIFY request")
 	tx.Respond(sip.NewResponseFromRequest(req, http.StatusOK, "OK", nil))
 }
