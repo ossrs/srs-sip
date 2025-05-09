@@ -1,5 +1,6 @@
 # 通用配置
 common:
+  # [debug, info, warn, error]
   log-level: "info"
   log-file: "logs/srs-sip.log"
 
