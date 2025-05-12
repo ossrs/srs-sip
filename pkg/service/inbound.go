@@ -3,6 +3,7 @@ package service
 import (
 	"bytes"
 	"encoding/xml"
+	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
@@ -34,6 +35,8 @@ func (s *UAS) onRegister(req *sip.Request, tx sip.ServerTransaction) {
 		slog.Error("invalid device ID")
 		return
 	}
+
+	slog.Debug(fmt.Sprintf("Received REGISTER %s", req.String()))
 
 	if s.conf.GB28181.Auth.Enable {
 		// Check if Authorization header exists
@@ -84,7 +87,7 @@ func (s *UAS) onRegister(req *sip.Request, tx sip.ServerTransaction) {
 				NetworkType: req.Transport(),
 			})
 			s.respondRegister(req, http.StatusOK, "OK", tx)
-			slog.Info("Register success", "device_id", id, "source", req.Source(), "request", req.String())
+			slog.Info(fmt.Sprintf("Register success %s %s", id, req.Source()))
 
 			go s.ConfigDownload(id)
 			go s.Catalog(id)
@@ -99,7 +102,7 @@ func (s *UAS) onRegister(req *sip.Request, tx sip.ServerTransaction) {
 				DM.UpdateDevice(id, d)
 				s.respondRegister(req, http.StatusOK, "OK", tx)
 
-				slog.Info("Re-register success", "device_id", id, "source", req.Source(), "request", req.String())
+				slog.Info(fmt.Sprintf("Re-register success %s %s", id, req.Source()))
 			}
 		}
 	}
@@ -117,7 +120,7 @@ func (s *UAS) onMessage(req *sip.Request, tx sip.ServerTransaction) {
 		slog.Error("invalid device ID", "request", req.String())
 	}
 
-	slog.Debug("Received MESSAGE", "request", req.String())
+	slog.Debug(fmt.Sprintf("Received MESSAGE %s", req.String()))
 
 	temp := &models.XmlMessageInfo{}
 	decoder := xml.NewDecoder(bytes.NewReader([]byte(req.Body())))
@@ -125,10 +128,12 @@ func (s *UAS) onMessage(req *sip.Request, tx sip.ServerTransaction) {
 	if err := decoder.Decode(temp); err != nil {
 		slog.Error("decode message error", "error", err.Error(), "message", req.Body())
 	}
+
+	slog.Info(fmt.Sprintf("Received MESSAGE %s %s %s", temp.CmdType, temp.DeviceID, req.Source()))
+
 	var body string
 	switch temp.CmdType {
 	case "Keepalive":
-		slog.Info("Keepalive")
 		if d, ok := DM.GetDevice(temp.DeviceID); ok && d.Online {
 			// 更新设备心跳时间
 			DM.UpdateDeviceHeartbeat(temp.DeviceID)
@@ -138,16 +143,13 @@ func (s *UAS) onMessage(req *sip.Request, tx sip.ServerTransaction) {
 		}
 	case "SensorCatalog": // 兼容宇视，非国标
 	case "Catalog":
-		slog.Info("Catalog")
 		DM.UpdateChannels(temp.DeviceID, temp.DeviceList...)
 		//go s.AutoInvite(temp.DeviceID, temp.DeviceList...)
 	case "ConfigDownload":
-		slog.Info("ConfigDownload")
 		DM.UpdateDeviceConfig(temp.DeviceID, &temp.BasicParam)
 	case "Alarm":
 		slog.Info("Alarm")
 	case "RecordInfo":
-		slog.Info("RecordInfo")
 		// 从 recordQueryResults 中获取对应通道的结果通道
 		if ch, ok := s.recordQueryResults.Load(temp.DeviceID); ok {
 			// 发送查询结果
@@ -164,6 +166,6 @@ func (s *UAS) onMessage(req *sip.Request, tx sip.ServerTransaction) {
 }
 
 func (s *UAS) onNotify(req *sip.Request, tx sip.ServerTransaction) {
-	slog.Info("Received NOTIFY request")
+	slog.Debug(fmt.Sprintf("Received NOTIFY %s", req.String()))
 	tx.Respond(sip.NewResponseFromRequest(req, http.StatusOK, "OK", nil))
 }
