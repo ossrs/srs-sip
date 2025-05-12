@@ -25,8 +25,10 @@ func NewService(ctx context.Context, r0 interface{}) (*Service, error) {
 	return s, nil
 }
 
-func (s *Service) Start() error {
-	zerolog.SetGlobalLevel(zerolog.Disabled)
+func (s *Service) Start(conf *config.MainConfig) error {
+	if conf.Common.LogLevel != "debug" {
+		zerolog.SetGlobalLevel(zerolog.Disabled)
+	}
 
 	ua, err := sipgo.NewUA(
 		sipgo.WithUserAgent(UserAgent),

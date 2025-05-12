@@ -62,7 +62,7 @@ func main() {
 		return
 	}
 
-	if err := sipSvr.Start(); err != nil {
+	if err := sipSvr.Start(conf); err != nil {
 		slog.Error("start sip service failed", "error", err.Error())
 		return
 	}
