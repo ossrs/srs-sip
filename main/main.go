@@ -54,7 +54,7 @@ func main() {
 	slog.Info("*****************************************************")
 	slog.Info("          ☆☆☆ 欢迎使用 SRS-SIP 服务 ☆☆☆")
 	slog.Info("*****************************************************")
-	slog.Info("srs-sip service starting", "config", *configPath, "log_file", conf.Common.LogFile)
+	slog.Info("srs-sip service starting", "config", *configPath, "log_file", conf.Common.LogFile, "log_level", conf.Common.LogLevel)
 
 	sipSvr, err := service.NewService(ctx, conf)
 	if err != nil {
