@@ -79,25 +79,31 @@ sequenceDiagram
 
 ## API 接口
 
-- 请求与响应数据格式为JSON
-- 所有响应的统一结构为：
-```json
-{
-  "code": 0,
-  "data": {}
-}
-```
+SRS-SIP 提供了完整的 HTTP API 接口，用于设备管理、视频流控制、PTZ控制等功能。
 
-错误响应示例：
-```
-{
-  "code": 500,
-  "data": {
-    "msg": "error message"
-  }
-}
-```
+详细的API接口文档请参考：[API接口文档](doc/API.md)
 
-### 接口列表
+### 主要功能
 
-暂无，请参考demo。
+- **设备管理**：获取设备列表、通道信息
+- **视频流控制**：发起视频邀请、暂停/恢复、调整播放速度
+- **PTZ控制**：云台控制（上下左右、缩放）
+- **录像查询**：查询历史录像记录
+- **媒体服务器管理**：配置和管理媒体服务器
+
+### 快速开始
+
+```bash
+# 获取设备列表
+curl -X GET "http://localhost:8025/srs-sip/v1/devices"
+
+# 发起视频邀请
+curl -X POST "http://localhost:8025/srs-sip/v1/invite" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "device_id": "34020000001320000001",
+    "channel_id": "34020000001320000002",
+    "media_server_id": 1,
+    "play_type": 0
+  }'
+```
