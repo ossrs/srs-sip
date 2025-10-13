@@ -16,14 +16,14 @@ type DeviceInfo struct {
 	NetworkType       string    `json:"network_type"`
 	ChannelMap        sync.Map  `json:"-"`
 	Online            bool      `json:"online"`
-	HeartBeatInterval int       `json:"heart_beat_interval"`
-	HeartBeatCount    int       `json:"heart_beat_count"`
+	HeartBeatInterval int       `json:"heart_beat_interval"` // 心跳间隔时间，单位秒
+	HeartBeatCount    int       `json:"heart_beat_count"`    // 心跳超时次数
 	lastHeartbeat     time.Time `json:"-"`
 }
 
 const (
-	DefaultHeartbeatInterval = 60 * time.Second // 心跳检查间隔时间
-	DefaultHeartbeatCount    = 3                // 心跳检查次数
+	DefaultHeartbeatInterval = 60 // 默认心跳检查间隔时间（秒）
+	DefaultHeartbeatCount    = 3  // 默认心跳检查次数
 )
 
 type deviceManager struct {
@@ -75,7 +75,7 @@ func (dm *deviceManager) checkHeartbeats() {
 		device := value.(*DeviceInfo)
 
 		if device.HeartBeatInterval == 0 {
-			device.HeartBeatInterval = int(DefaultHeartbeatInterval)
+			device.HeartBeatInterval = DefaultHeartbeatInterval
 		}
 		if device.HeartBeatCount == 0 {
 			device.HeartBeatCount = DefaultHeartbeatCount
