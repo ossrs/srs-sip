@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ossrs/srs-sip/pkg/models"
+	"github.com/ossrs/srs-sip/pkg/utils"
 )
 
 type DeviceInfo struct {
@@ -15,14 +16,14 @@ type DeviceInfo struct {
 	NetworkType       string    `json:"network_type"`
 	ChannelMap        sync.Map  `json:"-"`
 	Online            bool      `json:"online"`
-	HeartBeatInterval int       `json:"heart_beat_interval"`
-	HeartBeatCount    int       `json:"heart_beat_count"`
+	HeartBeatInterval int       `json:"heart_beat_interval"` // 心跳间隔时间，单位秒
+	HeartBeatCount    int       `json:"heart_beat_count"`    // 心跳超时次数
 	lastHeartbeat     time.Time `json:"-"`
 }
 
 const (
-	DefaultHeartbeatInterval = 60 * time.Second // 心跳检查间隔时间
-	DefaultHeartbeatCount    = 3                // 心跳检查次数
+	DefaultHeartbeatInterval = 60 // 默认心跳检查间隔时间（秒）
+	DefaultHeartbeatCount    = 3  // 默认心跳检查次数
 )
 
 type deviceManager struct {
@@ -74,7 +75,7 @@ func (dm *deviceManager) checkHeartbeats() {
 		device := value.(*DeviceInfo)
 
 		if device.HeartBeatInterval == 0 {
-			device.HeartBeatInterval = int(DefaultHeartbeatInterval)
+			device.HeartBeatInterval = DefaultHeartbeatInterval
 		}
 		if device.HeartBeatCount == 0 {
 			device.HeartBeatCount = DefaultHeartbeatCount
@@ -232,15 +233,14 @@ func (dm *deviceManager) UpdateChannels(deviceID string, list ...models.ChannelI
 		return fmt.Errorf("device not found: %s", deviceID)
 	}
 
-	// clear ChannelMap
-	device.ChannelMap.Range(func(key, value interface{}) bool {
-		device.ChannelMap.Delete(key)
-		return true
-	})
-
 	parser, ok := parserRegistry.GetParser(list[0].Manufacturer)
 	if !ok {
-		return fmt.Errorf("no parser found for manufacturer: %s", list[0].Manufacturer)
+		// 如果找不到特定厂商的解析器，使用通用解析器
+		parser, ok = parserRegistry.GetParser("Common")
+		if !ok {
+			return fmt.Errorf("no parser found for manufacturer: %s and common parser is not available", list[0].Manufacturer)
+		}
+		slog.Info("Using common parser for unknown manufacturer", "manufacturer", list[0].Manufacturer)
 	}
 
 	channels, err := parser.ParseChannels(list...)
@@ -258,14 +258,29 @@ func (dm *deviceManager) UpdateChannels(deviceID string, list ...models.ChannelI
 func (dm *deviceManager) ApiGetChannelByDeviceId(deviceID string) []models.ChannelInfo {
 	device, ok := dm.GetDevice(deviceID)
 	if !ok {
+		slog.Info("Device not found", "device_id", deviceID)
 		return nil
 	}
 
 	channels := make([]models.ChannelInfo, 0)
 	device.ChannelMap.Range(func(key, value interface{}) bool {
-		channels = append(channels, value.(models.ChannelInfo))
+		channel := value.(models.ChannelInfo)
+		slog.Debug("Found channel in ChannelMap",
+			"device_id", deviceID,
+			"channel_key", key,
+			"channel_id", channel.DeviceID,
+			"channel_name", channel.Name,
+			"channel_status", channel.Status,
+			"manufacturer", channel.Manufacturer,
+			"is_video_channel", utils.IsVideoChannel(channel.DeviceID))
+
+		// 只返回视频通道
+		if utils.IsVideoChannel(channel.DeviceID) {
+			channels = append(channels, channel)
+		}
 		return true
 	})
+	slog.Debug("Finished iterating ChannelMap", "device_id", deviceID, "total_channels", len(channels))
 	return channels
 }
 
@@ -273,12 +288,35 @@ func (dm *deviceManager) GetAllVideoChannels() []models.ChannelInfo {
 	channels := make([]models.ChannelInfo, 0)
 	dm.devices.Range(func(key, value interface{}) bool {
 		device := value.(*DeviceInfo)
+		deviceID := key.(string)
+		slog.Debug("Processing device", "device_id", deviceID, "online", device.Online)
+
+		channelCount := 0
+		videoChannelCount := 0
 		device.ChannelMap.Range(func(key, value interface{}) bool {
-			channels = append(channels, value.(models.ChannelInfo))
+			channel := value.(models.ChannelInfo)
+			channelCount++
+			isVideoChannel := utils.IsVideoChannel(channel.DeviceID)
+			slog.Debug("Found channel in device",
+				"device_id", deviceID,
+				"channel_key", key,
+				"channel_id", channel.DeviceID,
+				"channel_name", channel.Name,
+				"channel_status", channel.Status,
+				"manufacturer", channel.Manufacturer,
+				"parental", channel.Parental,
+				"is_video_channel", isVideoChannel)
+
+			// 只添加视频通道
+			if isVideoChannel {
+				videoChannelCount++
+				channels = append(channels, channel)
+			}
 			return true
 		})
 		return true
 	})
+	slog.Debug("Finished getting all video channels", "total_channels", len(channels))
 	return channels
 }
 
@@ -326,8 +364,17 @@ func (p *UniviewParser) ParseChannels(list ...models.ChannelInfo) ([]models.Chan
 	return videoChannels, nil
 }
 
+// Common channel parser implementation - used as fallback when no specific parser is found
+type CommonParser struct{}
+
+func (p *CommonParser) ParseChannels(list ...models.ChannelInfo) ([]models.ChannelInfo, error) {
+	// 通用解析器：直接返回所有通道，不做特殊处理
+	return list, nil
+}
+
 func init() {
 	parserRegistry.RegisterParser("Hikvision", &HikvisionParser{})
 	parserRegistry.RegisterParser("DAHUA", &DahuaParser{})
 	parserRegistry.RegisterParser("UNIVIEW", &UniviewParser{})
+	parserRegistry.RegisterParser("Common", &CommonParser{})
 }
