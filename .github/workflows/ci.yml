@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.23'
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Cache Node modules
+      uses: actions/cache@v4
+      with:
+        path: html/NextGB/node_modules
+        key: ${{ runner.os }}-node-${{ hashFiles('html/NextGB/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-
+
+    - name: Download Go dependencies
+      run: go mod download
+
+    - name: Build Go application
+      run: make build
+
+    - name: Run Go tests
+      run: go test -v ./...
+
+    - name: Install Vue dependencies
+      run: make vue-install
+
+    - name: Build Vue application
+      run: make vue-build
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      if: success()
+      with:
+        name: srs-sip-build
+        path: |
+          objs/srs-sip
+          html/NextGB/dist/
+        retention-days: 7
+
