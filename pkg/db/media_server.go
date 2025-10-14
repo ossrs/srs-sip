@@ -58,12 +58,43 @@ func NewMediaServerDB(dbPath string) (*MediaServerDB, error) {
 	return &MediaServerDB{db: db}, nil
 }
 
+// GetMediaServerByNameAndIP 根据名称和IP查询媒体服务器
+func (m *MediaServerDB) GetMediaServerByNameAndIP(name, ip string) (*models.MediaServerResponse, error) {
+	var ms models.MediaServerResponse
+	err := m.db.QueryRow(`
+		SELECT id, name, type, ip, port, username, password, secret, is_default, created_at
+		FROM media_servers WHERE name = ? AND ip = ?
+	`, name, ip).Scan(&ms.ID, &ms.Name, &ms.Type, &ms.IP, &ms.Port, &ms.Username, &ms.Password, &ms.Secret, &ms.IsDefault, &ms.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &ms, nil
+}
+
 func (m *MediaServerDB) AddMediaServer(name, serverType, ip string, port int, username, password, secret string, isDefault int) error {
 	_, err := m.db.Exec(`
 		INSERT INTO media_servers (name, type, ip, port, username, password, secret, is_default)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 	`, name, serverType, ip, port, username, password, secret, isDefault)
 	return err
+}
+
+// AddOrUpdateMediaServer 添加或更新媒体服务器（如果已存在则更新）
+func (m *MediaServerDB) AddOrUpdateMediaServer(name, serverType, ip string, port int, username, password, secret string, isDefault int) error {
+	// 检查是否已存在
+	existing, err := m.GetMediaServerByNameAndIP(name, ip)
+	if err == nil && existing != nil {
+		// 已存在，更新记录
+		_, err = m.db.Exec(`
+			UPDATE media_servers
+			SET type = ?, port = ?, username = ?, password = ?, secret = ?, is_default = ?
+			WHERE name = ? AND ip = ?
+		`, serverType, port, username, password, secret, isDefault, name, ip)
+		return err
+	}
+
+	// 不存在，插入新记录
+	return m.AddMediaServer(name, serverType, ip, port, username, password, secret, isDefault)
 }
 
 func (m *MediaServerDB) DeleteMediaServer(id int) error {

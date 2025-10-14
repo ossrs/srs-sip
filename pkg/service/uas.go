@@ -86,7 +86,7 @@ func (s *UAS) startSipServer(agent *sipgo.UserAgent, ctx context.Context, r0 int
 
 	candidate := os.Getenv("CANDIDATE")
 	if candidate != "" {
-		MediaDB.AddMediaServer("Default", "SRS", candidate, 1985, "", "", "", 1)
+		MediaDB.AddOrUpdateMediaServer("Default", "SRS", candidate, 1985, "", "", "", 1)
 	}
 	return nil
 }
