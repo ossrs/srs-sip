@@ -3,7 +3,7 @@ module github.com/ossrs/srs-sip
 go 1.23
 
 require (
-	github.com/emiago/sipgo v0.22.1
+	github.com/emiago/sipgo v0.33.0
 	github.com/gorilla/handlers v1.5.2
 	github.com/gorilla/mux v1.8.1
 	github.com/ossrs/go-oryx-lib v0.0.10
@@ -23,7 +23,7 @@ require (
 	github.com/gobwas/ws v1.3.2 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
-	github.com/icholy/digest v0.1.22 // indirect
+	github.com/icholy/digest v1.1.0 // indirect
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
