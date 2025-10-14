@@ -1,0 +1,56 @@
+run:
+  timeout: 5m
+  tests: true
+  modules-download-mode: readonly
+
+linters:
+  enable:
+    - errcheck      # 检查未处理的错误
+    - gosimple      # 简化代码
+    - govet         # 检查可疑的构造
+    - ineffassign   # 检查无效的赋值
+    - staticcheck   # 静态分析
+    - unused        # 检查未使用的常量、变量、函数和类型
+    - gofmt         # 检查代码格式
+    - goimports     # 检查导入顺序
+    - misspell      # 检查拼写错误
+    - revive        # 快速、可配置、可扩展、灵活的 Go 源代码 linter
+  disable:
+    - typecheck     # 暂时禁用，因为项目中有一些类型问题
+
+linters-settings:
+  errcheck:
+    check-blank: false
+    check-type-assertions: false
+  
+  govet:
+    check-shadowing: false
+  
+  gofmt:
+    simplify: true
+  
+  revive:
+    confidence: 0.8
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  
+  # 排除一些已知的问题
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - errcheck
+        - gosec
+    
+    # 忽略 interface{} 可以替换为 any 的警告（Go 1.18+）
+    - text: "interface\\{\\} can be replaced by any"
+      linters:
+        - revive
+
+output:
+  format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+

@@ -1,5 +1,9 @@
 # SRS-SIP
 
+[![CI](https://github.com/ossrs/srs-sip/actions/workflows/ci.yml/badge.svg)](https://github.com/ossrs/srs-sip/actions/workflows/ci.yml)
+[![Docker Build](https://github.com/ossrs/srs-sip/actions/workflows/docker.yml/badge.svg)](https://github.com/ossrs/srs-sip/actions/workflows/docker.yml)
+[![CodeQL](https://github.com/ossrs/srs-sip/actions/workflows/codeql.yml/badge.svg)](https://github.com/ossrs/srs-sip/actions/workflows/codeql.yml)
+
 ## Usage
 
 Pre-requisites:

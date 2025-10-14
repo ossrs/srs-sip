@@ -1,0 +1,159 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  # Go 后端构建和测试
+  backend:
+    name: Backend Build & Test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        go-version: ['1.23']
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ matrix.go-version }}
+        cache: true
+
+    - name: Verify dependencies
+      run: go mod verify
+
+    - name: Download dependencies
+      run: go mod download
+
+    - name: Run go vet
+      run: go vet ./...
+
+    - name: Run tests
+      run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+
+    - name: Upload coverage to Codecov
+      if: matrix.os == 'ubuntu-latest'
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./coverage.out
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+    - name: Build binary (Linux/macOS)
+      if: runner.os != 'Windows'
+      run: make build
+
+    - name: Build binary (Windows)
+      if: runner.os == 'Windows'
+      run: go build -o objs/srs-sip.exe main/main.go
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: srs-sip-${{ matrix.os }}
+        path: |
+          objs/srs-sip*
+        retention-days: 7
+
+  # 前端构建
+  frontend:
+    name: Frontend Build
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: html/NextGB/package-lock.json
+
+    - name: Install dependencies
+      run: cd html/NextGB && npm ci
+
+    - name: Build frontend
+      run: cd html/NextGB && npm run build
+
+    - name: Upload frontend artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: frontend-dist
+        path: html/NextGB/dist
+        retention-days: 7
+
+  # 代码质量检查
+  lint:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.23'
+        cache: true
+
+    - name: Run golangci-lint
+      uses: golangci/golangci-lint-action@v4
+      with:
+        version: latest
+        args: --timeout=5m
+
+  # 完整构建（包含前后端）
+  full-build:
+    name: Full Build
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.23'
+        cache: true
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: html/NextGB/package-lock.json
+
+    - name: Build all
+      run: |
+        cd html/NextGB && npm ci && npm run build
+        cd ../..
+        make build
+
+    - name: Create release package
+      run: |
+        mkdir -p release/objs
+        cp -r objs/srs-sip release/objs/
+        cp -r html/NextGB/dist release/html
+        cp -r conf release/
+        tar -czf srs-sip-release.tar.gz -C release .
+
+    - name: Upload release package
+      uses: actions/upload-artifact@v4
+      with:
+        name: srs-sip-full-release
+        path: srs-sip-release.tar.gz
+        retention-days: 30
+
