@@ -1,5 +1,5 @@
 # 引入SRS
-FROM ossrs/srs:v6.0.155 AS srs
+FROM ossrs/srs:6.0.177 AS srs
 
 # 前端构建阶段
 FROM node:20-slim AS frontend-builder
