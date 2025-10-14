@@ -1,6 +1,6 @@
 module github.com/ossrs/srs-sip
 
-go 1.23
+go 1.24.0
 
 require (
 	github.com/emiago/sipgo v0.22.1
@@ -9,7 +9,7 @@ require (
 	github.com/ossrs/go-oryx-lib v0.0.10
 	github.com/ossrs/srs-bench v0.0.0-20240708032622-848f9300df56
 	github.com/rs/zerolog v1.33.0
-	golang.org/x/net v0.33.0
+	golang.org/x/net v0.46.0
 	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.29.2
 )
@@ -39,10 +39,10 @@ require (
 	github.com/x-cray/logrus-prefixed-formatter v0.5.2 // indirect
 	github.com/yapingcat/gomedia/codec v0.0.0-20220617074658-94762898dc25 // indirect
 	github.com/yapingcat/gomedia/mpeg2 v0.0.0-20220617074658-94762898dc25 // indirect
-	golang.org/x/crypto v0.31.0 // indirect
-	golang.org/x/sys v0.28.0 // indirect
-	golang.org/x/term v0.27.0 // indirect
-	golang.org/x/text v0.21.0 // indirect
+	golang.org/x/crypto v0.43.0 // indirect
+	golang.org/x/sys v0.37.0 // indirect
+	golang.org/x/term v0.36.0 // indirect
+	golang.org/x/text v0.30.0 // indirect
 	modernc.org/gc/v3 v3.0.0-20240107210532-573471604cb6 // indirect
 	modernc.org/libc v1.41.0 // indirect
 	modernc.org/mathutil v1.6.0 // indirect
