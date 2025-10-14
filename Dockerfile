@@ -18,7 +18,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -o /app/srs-sip main/main.go
 
 # 最终运行阶段
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 WORKDIR /usr/local
 
 # 设置时区
