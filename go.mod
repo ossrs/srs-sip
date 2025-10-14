@@ -8,7 +8,7 @@ require (
 	github.com/gorilla/mux v1.8.1
 	github.com/ossrs/go-oryx-lib v0.0.10
 	github.com/ossrs/srs-bench v0.0.0-20240708032622-848f9300df56
-	github.com/rs/zerolog v1.33.0
+	github.com/rs/zerolog v1.34.0
 	golang.org/x/net v0.33.0
 	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.29.2
