@@ -95,7 +95,7 @@ func GetLocalIP() (string, error) {
 	}
 	var candidates []Iface
 	for _, ifc := range ifaces {
-		if ifc.Flags&net.FlagUp == 0 || ifc.Flags&net.FlagUp == 0 {
+		if ifc.Flags&net.FlagUp == 0 {
 			continue
 		}
 		if ifc.Flags&(net.FlagPointToPoint|net.FlagLoopback) != 0 {
