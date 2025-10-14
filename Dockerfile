@@ -2,7 +2,7 @@
 FROM ossrs/srs:v6.0.155 AS srs
 
 # 前端构建阶段
-FROM node:20-slim AS frontend-builder
+FROM node:24-slim AS frontend-builder
 WORKDIR /app/frontend
 COPY html/NextGB/package*.json ./
 RUN npm install
