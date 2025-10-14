@@ -10,7 +10,7 @@ COPY html/NextGB/ .
 RUN npm run build
 
 # 后端构建阶段
-FROM golang:1.23 AS backend-builder
+FROM golang:1.25 AS backend-builder
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
