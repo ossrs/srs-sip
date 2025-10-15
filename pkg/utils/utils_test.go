@@ -156,6 +156,8 @@ func TestGetSessionName(t *testing.T) {
 		{"Talk", 3, "Talk"},
 		{"Unknown type", 99, "Play"},
 		{"Negative type", -1, "Play"},
+		{"Type 4", 4, "Play"},
+		{"Type 5", 5, "Play"},
 	}
 
 	for _, tt := range tests {
@@ -165,5 +167,31 @@ func TestGetSessionName(t *testing.T) {
 				t.Errorf("GetSessionName(%d) = %s, expected %s", tt.playType, result, tt.expected)
 			}
 		})
+	}
+}
+
+func TestGenRandomNumberZeroLength(t *testing.T) {
+	result := GenRandomNumber(0)
+	if len(result) != 0 {
+		t.Errorf("Expected empty string for length 0, got %s", result)
+	}
+}
+
+func TestCreateSSRCBothTypes(t *testing.T) {
+	// Test both live and non-live in one test
+	liveSSRC := CreateSSRC(true)
+	nonLiveSSRC := CreateSSRC(false)
+
+	if liveSSRC[0] != '0' {
+		t.Errorf("Live SSRC should start with '0', got '%c'", liveSSRC[0])
+	}
+
+	if nonLiveSSRC[0] != '1' {
+		t.Errorf("Non-live SSRC should start with '1', got '%c'", nonLiveSSRC[0])
+	}
+
+	// They should be different (with very high probability)
+	if liveSSRC == nonLiveSSRC {
+		t.Error("Live and non-live SSRCs should be different")
 	}
 }
