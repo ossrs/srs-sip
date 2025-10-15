@@ -50,6 +50,12 @@ jobs:
     - name: Run Go tests
       run: go test -v ./...
 
+    - name: Run Go tests with coverage
+      run: go test ./pkg/... -coverprofile=coverage.out -covermode=atomic
+
+    - name: Display coverage report
+      run: go tool cover -func=coverage.out
+
     - name: Install Vue dependencies
       run: make vue-install
 
