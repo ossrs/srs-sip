@@ -1,0 +1,22 @@
+name: "CodeQL Config"
+
+# 指定要扫描的路径
+paths:
+  - pkg
+  - main
+
+# 排除不需要扫描的路径
+paths-ignore:
+  - '**/*_test.go'
+  - 'html/**'
+  - 'objs/**'
+  - 'vendor/**'
+
+# 使用的查询套件
+queries:
+  - uses: security-extended
+  - uses: security-and-quality
+
+# 禁用默认查询（如果只想使用自定义查询）
+# disable-default-queries: true
+

@@ -1,6 +1,7 @@
 # SRS-SIP
 
 [![CI](https://github.com/ossrs/srs-sip/actions/workflows/ci.yml/badge.svg)](https://github.com/ossrs/srs-sip/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/ossrs/srs-sip/actions/workflows/codeql.yml/badge.svg)](https://github.com/ossrs/srs-sip/actions/workflows/codeql.yml)
 [![codecov](https://codecov.io/gh/ossrs/srs-sip/branch/main/graph/badge.svg)](https://codecov.io/gh/ossrs/srs-sip)
 [![Go Report Card](https://goreportcard.com/badge/github.com/ossrs/srs-sip)](https://goreportcard.com/report/github.com/ossrs/srs-sip)
 [![License](https://img.shields.io/github/license/ossrs/srs-sip)](https://github.com/ossrs/srs-sip/blob/main/LICENSE)
@@ -45,6 +46,10 @@ go tool cover -func=coverage.out
 ```
 
 For more details, see [Testing Guide](docs/TESTING.md).
+
+## Security
+
+This project uses CodeQL for automated security scanning. For more information about security practices and how to report vulnerabilities, see [Security Guide](docs/SECURITY.md).
 
 ## Docker
 
