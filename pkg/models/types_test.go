@@ -335,4 +335,3 @@ func TestCommonResponseWithDifferentDataTypes(t *testing.T) {
 		})
 	}
 }
-

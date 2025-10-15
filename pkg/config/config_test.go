@@ -133,7 +133,7 @@ func TestLoadConfigInvalid(t *testing.T) {
 
 func TestGetLocalIP(t *testing.T) {
 	ip, err := GetLocalIP()
-	
+
 	// 在某些环境下可能没有网络接口，所以允许返回错误
 	if err != nil {
 		t.Logf("GetLocalIP returned error (may be expected in some environments): %v", err)
@@ -152,4 +152,3 @@ func TestGetLocalIP(t *testing.T) {
 
 	t.Logf("Local IP: %s", ip)
 }
-

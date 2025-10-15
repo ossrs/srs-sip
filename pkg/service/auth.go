@@ -40,11 +40,11 @@ func ParseAuthorization(auth string) *AuthInfo {
 		if !strings.Contains(part, "=") {
 			continue
 		}
-		
+
 		kv := strings.SplitN(part, "=", 2)
 		key := strings.TrimSpace(kv[0])
 		value := strings.Trim(strings.TrimSpace(kv[1]), "\"")
-		
+
 		switch key {
 		case "username":
 			result.Username = value
@@ -60,7 +60,7 @@ func ParseAuthorization(auth string) *AuthInfo {
 			result.Algorithm = value
 		}
 	}
-	
+
 	return result
 }
 
@@ -80,7 +80,7 @@ func ValidateAuth(authInfo *AuthInfo, password string) bool {
 	ha1 := md5Hex(authInfo.Username + ":" + authInfo.Realm + ":" + password)
 	ha2 := md5Hex(method + ":" + authInfo.URI)
 	correctResponse := md5Hex(ha1 + ":" + authInfo.Nonce + ":" + ha2)
-	
+
 	return authInfo.Response == correctResponse
 }
 
@@ -89,4 +89,4 @@ func md5Hex(s string) string {
 	hash := md5.New()
 	hash.Write([]byte(s))
 	return hex.EncodeToString(hash.Sum(nil))
-} 
+}

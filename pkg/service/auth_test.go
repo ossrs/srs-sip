@@ -343,4 +343,3 @@ func TestParseAuthorizationQuotedValues(t *testing.T) {
 		t.Logf("Realm value: '%s'", result.Realm)
 	}
 }
-

@@ -141,7 +141,7 @@ func TestToPTZCmdSpecificCases(t *testing.T) {
 
 func TestToPTZCmdWithDifferentSpeeds(t *testing.T) {
 	speeds := []string{"1", "5", "10"}
-	
+
 	for _, speed := range speeds {
 		t.Run("Right with speed "+speed, func(t *testing.T) {
 			result, err := toPTZCmd("right", speed)
@@ -196,4 +196,3 @@ func TestPTZSpeedMap(t *testing.T) {
 		})
 	}
 }
-

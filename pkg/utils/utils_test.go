@@ -167,4 +167,3 @@ func TestGetSessionName(t *testing.T) {
 		})
 	}
 }
-
