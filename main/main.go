@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -95,9 +96,42 @@ func main() {
 			return
 		}
 
+		// 首先检查原始路径是否包含 ".." 以防止路径遍历攻击
+		if strings.Contains(r.URL.Path, "..") {
+			slog.Warn("potential path traversal attempt detected", "path", r.URL.Path)
+			http.Error(w, "Invalid path", http.StatusBadRequest)
+			return
+		}
+
+		// 清理路径
+		cleanPath := path.Clean(r.URL.Path)
+
 		// 检查请求的文件是否存在
-		filePath := path.Join(conf.Http.Dir, r.URL.Path)
-		_, err := os.Stat(filePath)
+		filePath := filepath.Join(conf.Http.Dir, cleanPath)
+
+		// 确保最终路径在允许的目录内
+		absDir, err := filepath.Abs(conf.Http.Dir)
+		if err != nil {
+			slog.Error("failed to get absolute path of http dir", "error", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		absFilePath, err := filepath.Abs(filePath)
+		if err != nil {
+			slog.Error("failed to get absolute path of file", "error", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		// 验证文件路径在允许的目录内
+		if !strings.HasPrefix(absFilePath, absDir) {
+			slog.Warn("path traversal attempt blocked", "requested", r.URL.Path, "resolved", absFilePath)
+			http.Error(w, "Access denied", http.StatusForbidden)
+			return
+		}
+
+		_, err = os.Stat(absFilePath)
 		if os.IsNotExist(err) {
 			// 如果文件不存在，返回 index.html
 			slog.Info("file not found, redirect to index", "path", r.URL.Path)
